@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CloudRain, Sun, Wind, Flame, AlertTriangle } from 'lucide-react';
-import Card from './Card';
+
 
 const ICONS = {
   rain: CloudRain,

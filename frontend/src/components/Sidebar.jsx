@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Shield, LayoutDashboard, Trophy, FileText, Activity, User, LogOut } from 'lucide-react';
+import { LayoutDashboard, Trophy, FileText, Activity, User, LogOut } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 const RIDER_NAV = [

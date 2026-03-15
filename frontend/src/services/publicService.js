@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const isProduction = window.location.hostname.endsWith('vercel.app');
+const API_URL = process.env.REACT_APP_API_URL || 
+                (isProduction ? 'https://gig-shield-backend.vercel.app' : 'http://localhost:5000');
 
 const publicService = {
    /**

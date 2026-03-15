@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { User, MapPin, Briefcase, Phone, Mail, Edit2, ShieldCheck, LogOut } from 'lucide-react';
+import { User, MapPin, Briefcase, Phone, Edit2, ShieldCheck, LogOut } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import Card from '../../components/Card';
 import { useNavigate } from 'react-router-dom';

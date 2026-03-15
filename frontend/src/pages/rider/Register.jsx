@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Bike, ChevronRight, User, Phone, IndianRupee, Shield, ArrowLeft } from 'lucide-react';
+import { Bike, ChevronRight, User, Phone, IndianRupee, Shield, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';

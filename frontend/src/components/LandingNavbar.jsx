@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield } from 'lucide-react';
 
 export default function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -29,7 +28,7 @@ export default function LandingNavbar() {
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-8">
           <a href="#problem" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">Problem</a>
-          <a href="#solution" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">How it works</a>
+          <a href="#how-it-works" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">How it works</a>
           <a href="#cities" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">Cities</a>
           <Link to="/dashboard" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">Dashboard Preview</Link>
         </div>

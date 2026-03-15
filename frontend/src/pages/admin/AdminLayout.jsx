@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
-import { Shield, LayoutDashboard, Users, Radio, AlertTriangle, TrendingUp, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Radio, AlertTriangle, TrendingUp, LogOut } from 'lucide-react';
 
 const ADMIN_NAV = [
   { to: '/admin/dashboard', label: 'Company Overview', icon: LayoutDashboard },

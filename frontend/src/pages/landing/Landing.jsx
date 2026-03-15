@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Droplet, Sun, Wind, ChevronDown, MonitorPlay, Shield } from 'lucide-react';
+import { ChevronRight, Droplet, Sun, ChevronDown, MonitorPlay, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import LandingNavbar from '../../components/LandingNavbar';
 import MapView from '../../components/MapView';
@@ -204,7 +204,7 @@ export default function Landing() {
       </motion.section>
 
       {/* ── 3. Solution Section ── */}
-      <motion.section id="solution" className="py-24 bg-ink text-white px-6 overflow-hidden" {...revealProps}>
+      <motion.section id="how-it-works" className="py-24 bg-ink text-white px-6 overflow-hidden" {...revealProps}>
         <div className="max-w-4xl mx-auto text-center">
           <span className="text-indigo-400 font-bold tracking-widest text-sm uppercase mb-3 block">How it Works</span>
           <h2 className="font-display text-4xl lg:text-5xl font-bold mb-16">
@@ -445,10 +445,10 @@ export default function Landing() {
           </div>
           
           <div className="flex items-center gap-6">
-            <a href="#" className="text-sm text-indigo-muted hover:text-white transition-colors">About</a>
-            <a href="#" className="text-sm text-indigo-muted hover:text-white transition-colors">Docs</a>
-            <a href="#" className="text-sm text-indigo-muted hover:text-white transition-colors">GitHub</a>
-            <a href="#" className="text-sm text-indigo-muted hover:text-white transition-colors">Team</a>
+            <a href="#problem" className="text-sm text-indigo-muted hover:text-white transition-colors">About</a>
+            <a href="#how-it-works" className="text-sm text-indigo-muted hover:text-white transition-colors">How it works</a>
+            <a href="https://github.com/KRUSHAL2956/GigShield" target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-muted hover:text-white transition-colors">GitHub</a>
+            <a href="#cities" className="text-sm text-indigo-muted hover:text-white transition-colors">Cities</a>
           </div>
         </div>
         <div className="max-w-6xl mx-auto mt-8 pt-8 border-t border-ink-border text-center text-xs text-ink-muted">

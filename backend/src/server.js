@@ -33,15 +33,22 @@ app.get('/', (req, res) => {
 const allowedOrigins = [
   'http://localhost:3000',
   'http://frontend:3000',
-  /\.gigshield\.vercel\.app$/ // Stricter anchored regex
+  /\.vercel\.app$/, // Allow all Vercel subdomains
+  'https://gig-shield-website.vercel.app'
 ];
 
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
-
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(pattern => 
+      typeof pattern === 'string' ? pattern === origin : pattern.test(origin)
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -50,9 +57,23 @@ app.use(express.json());
 app.get('/health', async (req, res) => {
   try {
     const dbResult = await pool.query('SELECT NOW()');
+    let redisStatus = 'not_connected';
+    
+    try {
+      const { redisClient } = require('./utils/redis');
+      if (redisClient.isOpen) {
+        await redisClient.ping();
+        redisStatus = 'connected';
+      }
+    } catch (rErr) {
+      console.error('Redis health check failed:', rErr);
+    }
+
     res.json({
       status: 'healthy',
       service: 'gigshield-backend',
+      database: 'connected',
+      redis: redisStatus,
       timestamp: dbResult.rows[0].now,
       uptime: process.uptime()
     });
@@ -79,6 +100,10 @@ app.use((err, req, res, next) => {
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
+
+// Initialize Redis connection
+const { connectRedis } = require('./utils/redis');
+connectRedis().catch(err => console.error('Redis startup connection failed:', err));
 
 // VERCEL Support: Export the app instead of listening if not in standalone mode
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {

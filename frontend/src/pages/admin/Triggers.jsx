@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Radio, Map, Sun, Wind, CloudRain, AlertTriangle, Play } from 'lucide-react';
+import { Sun, CloudRain, AlertTriangle } from 'lucide-react';
 import Card from '../../components/Card';
 import MapView from '../../components/MapView';
-import WeatherWidget from '../../components/WeatherWidget';
 
 const CITIES_DATA = [
   { city: 'Mumbai', risk: 'HIGH', status: 'Heavy Rain 18mm/hr' },

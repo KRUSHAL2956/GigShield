@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertOctagon, Check, X, Search, Activity } from 'lucide-react';
+import { AlertOctagon, Check, X } from 'lucide-react';
 import Card from '../../components/Card';
 import Chart from '../../components/Chart';
 

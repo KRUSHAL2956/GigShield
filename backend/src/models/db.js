@@ -1,9 +1,12 @@
 const { Pool } = require('pg');
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL || 
+                    process.env.POSTGRES_URL || 
+                    process.env.NEON_DATABASE_URL ||
+                    process.env.POSTGRES_PRISMA_URL;
 
 if (!databaseUrl) {
-  console.error('❌ FATAL: DATABASE_URL environment variable is missing.');
+  console.error('❌ FATAL: Neither DATABASE_URL nor POSTGRES_URL environment variables exist.');
   process.exit(1);
 }
 
