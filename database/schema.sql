@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS riders (
     tenure_months   INTEGER DEFAULT 0,
     lifetime_avg_rating DECIMAL(3,2) DEFAULT 4.0 CHECK (lifetime_avg_rating >= 0.00 AND lifetime_avg_rating <= 5.00),
     password_hash   VARCHAR(255),
+    firebase_uid    VARCHAR(128) UNIQUE,
     is_active       BOOLEAN DEFAULT TRUE,
     created_at      TIMESTAMP DEFAULT NOW(),
     updated_at      TIMESTAMP DEFAULT NOW()

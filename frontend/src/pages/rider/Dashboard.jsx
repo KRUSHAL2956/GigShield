@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldAlert, IndianRupee, CloudLightning, Shield } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -9,26 +9,61 @@ import ClaimCard from '../../components/ClaimCard';
 import Chart from '../../components/Chart';
 import { useNavigate } from 'react-router-dom';
 import TierBadge from '../../components/TierBadge';
+import api from '../../api/axios';
 
-const WEEKLY_EARNINGS_DATA = [
-  { name: 'Mon', value: 850 },
-  { name: 'Tue', value: 920 },
-  { name: 'Wed', value: 1100 },
-  { name: 'Thu', value: 0 }, // Rained out
-  { name: 'Fri', value: 1250 },
-  { name: 'Sat', value: 1600 },
-  { name: 'Sun', value: 1800 },
-];
-
-const RECENT_CLAIMS = [
-  { id: 1, date: 'Oct 12, 2026', type: 'Extreme Heat', amount: 265, status: 'paid' },
-  { id: 2, date: 'Oct 08, 2026', type: 'Heavy Rain', amount: 310, status: 'paid' }
-];
+// Mock data removed - fetching from API
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { rider, score } = useAuthStore();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const activeScore = score || { total_score: 97, premium_pct: 1.25, tier: 'Titanium' };
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!rider?.id) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await api.get(`/api/riders/${rider.id}/dashboard-summary`);
+        setData(res.data);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setError('Failed to load dashboard data. Please try again later.');
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, [rider?.id]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo"></div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-red px-4 py-3 bg-red/10 border border-red/20 rounded-lg">
+        {error}
+      </div>
+    </div>
+  );
+
+  const stats = data?.stats || { weekly_earnings: 0, premium_paid: 0, payouts_received: 0, coverage_left: 2000 };
+  const claims = data?.recentClaims || [];
+  const deliveries = data?.recentDeliveries || [];
+
+  // Map deliveries to chart data
+  const chartData = deliveries.length > 0 
+    ? deliveries.map((d, i) => ({ name: `D${deliveries.length - i}`, value: d.delivery_earning }))
+    : [{ name: 'No data', value: 0 }];
 
   return (
     <motion.div 
@@ -71,10 +106,10 @@ export default function Dashboard() {
 
       {/* ── Key Metrics ── */}
       <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={IndianRupee} label="Weekly Earnings" value="₹5,200" accent="indigo" />
-        <StatCard icon={Shield} label="Premium Paid" value="₹130" accent="teal" />
-        <StatCard icon={ShieldAlert} label="Coverage Left" value="₹1,870" accent="amber" />
-        <StatCard icon={CloudLightning} label="Payouts Recv." value="₹2,450" accent="coral" />
+        <StatCard icon={IndianRupee} label="Weekly Earnings" value={`₹${(stats.weekly_earnings ?? 0).toLocaleString()}`} accent="indigo" />
+        <StatCard icon={Shield} label="Premium Paid" value={`₹${(stats.premium_paid ?? 0).toLocaleString()}`} accent="teal" />
+        <StatCard icon={ShieldAlert} label="Coverage Left" value={`₹${(stats.coverage_left ?? 0).toLocaleString()}`} accent="amber" />
+        <StatCard icon={CloudLightning} label="Payouts Recv." value={`₹${(stats.payouts_received ?? 0).toLocaleString()}`} accent="coral" />
       </motion.div>
 
       {/* ── Charts & Policy ── */}
@@ -84,9 +119,9 @@ export default function Dashboard() {
         <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="md:col-span-2 card p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-ink uppercase tracking-wider text-xs">Earnings Overview</h3>
-            <span className="text-xs font-semibold px-2 py-1 bg-surface-sunken rounded-md text-ink-muted">This Week</span>
+            <span className="text-xs font-semibold px-2 py-1 bg-surface-sunken rounded-md text-ink-muted">Recent Deliveries</span>
           </div>
-          <Chart data={WEEKLY_EARNINGS_DATA} type="area" color="#4a1d96" valueFormatter={(val) => `₹${val}`} />
+          <Chart data={chartData} type="area" color="#4a1d96" valueFormatter={(val) => `₹${val}`} />
         </motion.div>
 
         {/* Coverage Usage */}
@@ -94,8 +129,8 @@ export default function Dashboard() {
           <div>
             <h3 className="font-bold text-ink uppercase tracking-wider text-xs mb-6">Policy Usage</h3>
             <div className="space-y-6">
-              <ProgressBar label="Weekly Cap" used={130} cap={2000} color="bg-indigo" />
-              <ProgressBar label="Monthly Cap" used={2450} cap={5000} color="bg-teal" />
+              <ProgressBar label="Weekly Cap" used={2000 - stats.coverage_left} cap={2000} color="bg-indigo" />
+              <ProgressBar label="Monthly Cap" used={stats.payouts_received} cap={5000} color="bg-teal" />
             </div>
           </div>
           <button 
@@ -122,22 +157,20 @@ export default function Dashboard() {
         </div>
         
         <div className="space-y-3">
-          {[
-            { id: 101, time: '14:20', earning: 85, premium: 2.12 },
-            { id: 102, time: '13:45', earning: 120, premium: 3.00 },
-            { id: 103, time: '12:15', earning: 60, premium: 1.50 }
-          ].map(delivery => (
+          {deliveries.length > 0 ? deliveries.map(delivery => (
              <div key={delivery.id} className="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm">
                 <div className="flex items-center gap-3">
-                   <div className="text-xs text-ink-muted w-10">{delivery.time}</div>
+                   <div className="text-xs text-ink-muted w-10">{new Date(delivery.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                    <div className="font-semibold text-sm text-ink">Delivery #{delivery.id}</div>
                 </div>
-                <div className="text-right">
-                   <div className="text-sm font-bold text-emerald-600">+₹{delivery.earning}</div>
-                   <div className="text-xs text-coral font-medium">-₹{delivery.premium.toFixed(2)} premium</div>
-                </div>
+                 <div className="text-right">
+                    <div className="text-sm font-bold text-emerald-600">+₹{delivery.delivery_earning}</div>
+                    <div className="text-xs text-coral font-medium">-₹{(Number(delivery.premium_deducted ?? 0)).toFixed(2)} premium</div>
+                 </div>
              </div>
-          ))}
+          )) : (
+            <div className="text-center py-4 text-ink-muted text-sm">No deliveries logged today.</div>
+          )}
         </div>
       </motion.div>
 
@@ -153,9 +186,16 @@ export default function Dashboard() {
           </button>
         </div>
         <div className="space-y-1">
-          {RECENT_CLAIMS.map(claim => (
-            <ClaimCard key={claim.id} claim={claim} />
-          ))}
+          {claims.length > 0 ? claims.map(claim => (
+            <ClaimCard key={claim.id} claim={{
+              ...claim,
+              type: (claim.disruption_type || 'Unknown').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+              date: !isNaN(new Date(claim.event_date).getTime()) ? new Date(claim.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Invalid Date',
+              amount: claim.final_payout
+            }} />
+          )) : (
+            <div className="text-center py-8 text-ink-muted text-sm">No recent claims.</div>
+          )}
         </div>
       </motion.div>
 

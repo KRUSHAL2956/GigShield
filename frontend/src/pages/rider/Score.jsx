@@ -1,34 +1,81 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { TrendingUp, Target, Award, Star, History, Calendar, Map } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingUp, Target, Award, Star, History, Calendar, Map, RefreshCw, AlertTriangle } from 'lucide-react';
+import axios from 'axios';
 import useAuthStore from '../../store/authStore';
 import TierBadge from '../../components/TierBadge';
 import ProgressBar from '../../components/ProgressBar';
+import api from '../../api/axios';
 
 export default function Score() {
-  const { score } = useAuthStore();
+  const { rider } = useAuthStore();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    
+    const fetchScore = async () => {
+      if (!rider?.id) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setError(null);
+        setLoading(true);
+        const res = await api.get(`/api/riders/${rider.id}/score`, { signal: controller.signal });
+        if (res.data.score === null) {
+          setError('ML scoring engine unreachable. Using baseline metrics.');
+        }
+        setData(res.data.score);
+      } catch (err) {
+        if (!axios.isCancel(err)) {
+          console.error('Failed to fetch score profile:', err);
+          setError('ML scoring engine unreachable. Using baseline metrics.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchScore();
+    
+    return () => controller.abort();
+  }, [rider?.id]);
   
-  // Default to mock data if no score exists yet
-  const displayScore = score || {
-    total_score: 97,
-    rating_score: 20,
-    tenure_score: 15,
-    earnings_score: 20,
-    claims_score: 18,
-    consistency_score: 15,
-    city_risk_score: 9,
-    premium_pct: 1.25,
-    tier: 'Titanium'
+  // Fallback to defaults or mock-like structure if no data
+  const displayScore = data || {
+    total_score: 0,
+    breakdown: {
+        rating: 0,
+        tenure: 0,
+        earnings: 0,
+        claims: 0,
+        consistency: 0,
+        city_risk: 0
+    },
+    premium_pct: 2.5,
+    tier: 'Bronze'
   };
 
   const factors = [
-    { label: 'Rating', val: displayScore.rating_score, max: 20, icon: Star, color: 'bg-indigo' },
-    { label: 'Tenure', val: displayScore.tenure_score, max: 15, icon: Award, color: 'bg-indigo' },
-    { label: 'Earnings', val: displayScore.earnings_score, max: 20, icon: Target, color: 'bg-teal' },
-    { label: 'Claims History', val: displayScore.claims_score, max: 20, icon: History, color: 'bg-teal' },
-    { label: 'Active Days', val: displayScore.consistency_score, max: 15, icon: Calendar, color: 'bg-amber' },
-    { label: 'Zone Risk', val: displayScore.city_risk_score, max: 10, icon: Map, color: 'bg-amber' },
+    { label: 'Rating', val: displayScore.breakdown.rating, max: 20, icon: Star, color: 'bg-indigo' },
+    { label: 'Tenure', val: displayScore.breakdown.tenure, max: 15, icon: Award, color: 'bg-indigo' },
+    { label: 'Earnings', val: displayScore.breakdown.earnings, max: 20, icon: Target, color: 'bg-teal' },
+    { label: 'Claims History', val: displayScore.breakdown.claims, max: 20, icon: History, color: 'bg-teal' },
+    { label: 'Active Days', val: displayScore.breakdown.consistency, max: 15, icon: Calendar, color: 'bg-amber' },
+    { label: 'Zone Risk', val: displayScore.breakdown.city_risk, max: 10, icon: Map, color: 'bg-amber' },
   ];
+
+  if (loading) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
+        <RefreshCw className="w-10 h-10 text-indigo animate-spin" />
+        <p className="text-ink-muted font-medium italic">Calculating your score profile...</p>
+      </div>
+    );
+  }
+
 
   return (
     <motion.div 
@@ -39,6 +86,28 @@ export default function Score() {
       <div className="mb-8">
         <h1 className="font-display font-bold text-3xl text-ink">Score Profile</h1>
         <p className="text-ink-muted mt-1">Your detailed rider rating and tier benefits.</p>
+        
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                <span className="text-sm font-medium text-amber-800">{error}</span>
+              </div>
+              <button 
+                onClick={() => window.location.reload()}
+                className="text-amber-700 hover:text-amber-900 flex items-center gap-1 text-sm font-bold"
+              >
+                <RefreshCw className="w-4 h-4" /> Retry
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">

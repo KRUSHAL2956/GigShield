@@ -1,23 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Download } from 'lucide-react';
 import Card from '../../components/Card';
 import Timeline from '../../components/Timeline';
 import StatCard from '../../components/StatCard';
+import api from '../../api/axios';
+import useAuthStore from '../../store/authStore';
 
-const MOCK_CLAIMS = [
-  { id: 1, title: 'Extreme Heat Disruption', date: 'Oct 12, 2026', description: 'Afternoon heatwave > 42°C in your zone. Auto-triggered.', amount: 265, status: 'paid' },
-  { id: 2, title: 'Heavy Rain Disruption', date: 'Oct 08, 2026', description: 'Monsoon sudden downpour. Rate > 15mm/hr.', amount: 310, status: 'paid' },
-  { id: 3, title: 'Suspicious Activity Flag', date: 'Sep 24, 2026', description: 'Logged out of partner platform during trigger window.', amount: 280, status: 'fraud_blocked' },
-  { id: 4, title: 'Moderate Rain', date: 'Sep 10, 2026', description: 'Continuous rain in evening slot.', amount: 150, status: 'approved' }
-];
+// Mock data removed
 
 export default function Claims() {
+  const { rider } = useAuthStore();
   const [filter, setFilter] = useState('all');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchClaims = async () => {
+      if (!rider?.id) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setError(null);
+        setLoading(true);
+        const res = await api.get(`/api/riders/${rider.id}/claims`);
+        setData(res.data);
+      } catch (err) {
+        console.error('Failed to fetch claims:', err);
+        setError(err.message || 'Failed to load claims profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClaims();
+  }, [rider?.id]);
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo"></div>
+      <p className="text-ink-muted italic">Syncing claims history...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="max-w-4xl mx-auto card p-12 text-center">
+      <Activity className="w-12 h-12 text-coral mx-auto mb-4" />
+      <h3 className="text-xl font-bold text-ink mb-2">Sync Interrupted</h3>
+      <p className="text-ink-muted mb-6">{error}</p>
+      <button 
+        onClick={() => { setError(null); setLoading(true); window.location.reload(); }}
+        className="btn-primary"
+      >
+        Retry Sync
+      </button>
+    </div>
+  );
+
+  const claims = (data?.claims || []).map(c => {
+    const isDateValid = c.event_date && !isNaN(new Date(c.event_date).getTime());
+    const parsedAmount = Number(c.final_payout);
+    const amount = isNaN(parsedAmount) ? 0 : parsedAmount;
+    return {
+      ...c,
+      title: (c.disruption_type || 'Unknown').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      date: isDateValid ? new Date(c.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Invalid Date',
+      description: `Automated ${(c.disruption_type || 'disruption').replace('_', ' ')} payout for ${c.city || 'Unknown city'}.`,
+      amount
+    };
+  });
+
+  const { total_count = 0, total_paid = 0, total_pending = 0, blocked_count = 0 } = data?.stats || {};
+  const stats = { total_count, total_paid, total_pending, blocked_count };
 
   const filteredClaims = filter === 'all' 
-    ? MOCK_CLAIMS 
-    : MOCK_CLAIMS.filter(c => c.status === filter);
+    ? claims 
+    : claims.filter(c => c.status === filter);
 
   return (
     <motion.div 
@@ -43,10 +102,10 @@ export default function Claims() {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <StatCard icon={Activity} label="Total Claims" value="14" accent="indigo" />
-        <StatCard icon={Activity} label="Total Paid" value="₹2,450" accent="teal" />
-        <StatCard icon={Activity} label="Pending" value="₹150" accent="amber" />
-        <StatCard icon={Activity} label="Blocked/Denied" value="1" accent="coral" />
+        <StatCard icon={Activity} label="Total Claims" value={stats.total_count.toString()} accent="indigo" />
+        <StatCard icon={Activity} label="Total Paid" value={`₹${stats.total_paid.toLocaleString()}`} accent="teal" />
+        <StatCard icon={Activity} label="Pending" value={`₹${stats.total_pending.toLocaleString()}`} accent="amber" />
+        <StatCard icon={Activity} label="Blocked/Denied" value={stats.blocked_count.toString()} accent="coral" />
       </div>
 
       <Card className="p-6">
