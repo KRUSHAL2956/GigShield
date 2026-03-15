@@ -1,0 +1,95 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: gigshield_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gigshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gigshield123}
+      POSTGRES_DB: ${POSTGRES_DB:-gigshield}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD", "sh", "-c", "pg_isready -U $${POSTGRES_USER:-gigshield}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gigshield-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: gigshield_redis
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-gigshield_redis_secret}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-gigshield_redis_secret}"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gigshield-net
+
+  backend:
+    build: ./backend
+    container_name: gigshield_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-gigshield}:${POSTGRES_PASSWORD:-gigshield123}@postgres:5432/${POSTGRES_DB:-gigshield}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-gigshield_redis_secret}@redis:6379/0
+      - ML_SERVICE_URL=${ML_SERVICE_URL:-http://ml-service:8000}
+      - JWT_SECRET=${JWT_SECRET:?}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+    networks:
+      - gigshield-net
+
+  ml-service:
+    build: ./ml-service
+    container_name: gigshield_ml
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-gigshield}:${POSTGRES_PASSWORD:-gigshield123}@postgres:5432/${POSTGRES_DB:-gigshield}
+      - MODEL_PATH=./app/models/
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./ml-service/app:/app/app
+    networks:
+      - gigshield-net
+
+  frontend:
+    build: ./frontend
+    container_name: gigshield_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    networks:
+      - gigshield-net
+
+volumes:
+  pgdata:
+
+networks:
+  gigshield-net:
+    driver: bridge
