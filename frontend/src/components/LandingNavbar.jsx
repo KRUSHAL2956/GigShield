@@ -30,12 +30,11 @@ export default function LandingNavbar() {
           <a href="#problem" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">Problem</a>
           <a href="#how-it-works" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">How it works</a>
           <a href="#cities" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">Cities</a>
-          <Link to="/dashboard" className="text-sm font-medium text-ink-muted hover:text-ink transition-colors">Dashboard Preview</Link>
         </div>
 
         {/* Auth Buttons */}
         <div className="flex items-center gap-3">
-          <Link to="/verify" className="hidden sm:inline-flex px-4 py-2 text-sm font-semibold text-ink hover:text-indigo transition-colors">
+          <Link to="/login" className="hidden sm:inline-flex px-4 py-2 text-sm font-semibold text-ink hover:text-indigo transition-colors">
             Log in
           </Link>
           <Link to="/register" className="btn-primary !py-2.5 !px-5 !text-sm !shadow-none">

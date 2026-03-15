@@ -8,14 +8,39 @@ console.log('DEBUG: Environment Variables Loaded');
 console.log('DEBUG: DATABASE_URL exists:', !!process.env.DATABASE_URL);
 console.log('DEBUG: JWT_SECRET exists:', !!process.env.JWT_SECRET);
 
+const admin = require('firebase-admin');
+let firebaseInitialized = false;
+
 const ridersRouter = require('./routes/riders');
 const deliveriesRouter = require('./routes/deliveries');
 const payoutsRouter = require('./routes/payouts');
 const publicRouter = require('./routes/public');
-const { pool } = require('./models/db');
+
+// Initialize Firebase Admin
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    firebaseInitialized = true;
+    console.log('✅ Firebase Admin initialized');
+  } catch (err) {
+    console.error('❌ Firebase Admin initialization failed:', err);
+  }
+} else {
+  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT not set. Firebase features will be skipped.');
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Export for use in other routes/middleware
+app.set('firebaseInitialized', firebaseInitialized);
+const { pool } = require('./models/db');
 
 // Middleware
 app.use(helmet());

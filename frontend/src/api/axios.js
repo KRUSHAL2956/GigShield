@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const isProduction = window.location.hostname.endsWith('vercel.app');
 const API_URL = process.env.REACT_APP_API_URL || 
-                (isProduction ? 'https://gig-shield-backend.vercel.app' : 'http://localhost:5000');
+                (isProduction ? 'https://gig-shield-backend.vercel.app' : 'http://127.0.0.1:5000');
 
 const api = axios.create({
   baseURL: API_URL,

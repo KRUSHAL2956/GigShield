@@ -1,10 +1,63 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, CreditCard, FileText, CheckCircle2 } from 'lucide-react';
 import Card from '../../components/Card';
 import ProgressBar from '../../components/ProgressBar';
+import api from '../../api/axios';
+import useAuthStore from '../../store/authStore';
 
 export default function Policy() {
+  const { rider } = useAuthStore();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      if (!rider?.id) {
+        setError('Rider not authenticated. Please log in.');
+        setData(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        setError(null);
+        setLoading(true);
+        const res = await api.get(`/api/riders/${rider.id}/policy`);
+        setData(res.data);
+      } catch (err) {
+        console.error('Failed to fetch policy:', err);
+        setError('Failed to load policy details. Please check your connection.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPolicy();
+  }, [rider?.id]);
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo"></div>
+      <p className="text-ink-muted italic">Loading coverage details...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="max-w-3xl mx-auto card p-12 text-center">
+      <Shield className="w-12 h-12 text-coral mx-auto mb-4" />
+      <h3 className="text-xl font-bold text-ink mb-2">Policy Load failed</h3>
+      <p className="text-ink-muted mb-6">{error}</p>
+      <button 
+        onClick={() => { setError(null); setLoading(true); window.location.reload(); }}
+        className="btn-primary"
+      >
+        Retry Fetch
+      </button>
+    </div>
+  );
+
+  const policy = data?.policy || { status: 'loading', premium_amount: 0, weekly_premium: 0, next_deduction: 'N/A', weekly_cap: 2000, monthly_cap: 5000, per_event_cap: 800 };
+  const usage = data?.usage || { weekly_total: 0, monthly_total: 0 };
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -28,13 +81,13 @@ export default function Policy() {
               </div>
               <div>
                 <p className="text-indigo-200 text-sm font-semibold uppercase tracking-wider mb-0.5">Active Plan</p>
-                <h2 className="text-2xl font-bold">Standard Income Shield</h2>
+                <h2 className="text-2xl font-bold">{policy.status === 'active' ? 'Standard Income Shield' : 'No Active Plan'}</h2>
               </div>
             </div>
             
             <div className="flex items-center gap-2 bg-white text-indigo px-4 py-2 rounded-lg font-bold shadow-sm whitespace-nowrap self-start md:self-auto">
               <CheckCircle2 className="w-4 h-4 text-teal" />
-              Status: Active
+              Status: {policy.status === 'active' ? 'Active' : 'Inactive'}
             </div>
           </div>
         </div>
@@ -47,11 +100,11 @@ export default function Policy() {
               <h3 className="font-bold text-ink uppercase tracking-wider text-xs">Payment Information</h3>
               <div className="flex items-center justify-between py-3 border-b border-border">
                 <span className="text-ink-muted">Weekly Premium</span>
-                <span className="font-semibold text-ink">₹125.00</span>
+                <span className="font-semibold text-ink">₹{policy.premium_amount || 0}</span>
               </div>
               <div className="flex items-center justify-between py-3 border-b border-border">
                 <span className="text-ink-muted">Next Deduction</span>
-                <span className="font-semibold text-ink">Mon, Oct 15</span>
+                <span className="font-semibold text-ink">{policy.week_start ? new Date(policy.week_start).toLocaleDateString() : 'N/A'}</span>
               </div>
               <div className="flex items-center justify-between py-3">
                 <span className="text-ink-muted">Payment Method</span>
@@ -67,15 +120,15 @@ export default function Policy() {
               <h3 className="font-bold text-ink uppercase tracking-wider text-xs">Coverage Limits</h3>
               <div className="flex items-center justify-between py-3 border-b border-border">
                 <span className="text-ink-muted">Per Event Cap</span>
-                <span className="font-semibold text-ink">₹800</span>
+                <span className="font-semibold text-ink">₹{policy.per_event_cap?.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between py-3 border-b border-border">
                 <span className="text-ink-muted">Weekly Max Cap</span>
-                <span className="font-semibold text-ink">₹2,000</span>
+                <span className="font-semibold text-ink">₹{policy.weekly_cap?.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between py-3">
                 <span className="text-ink-muted">Monthly Max Cap</span>
-                <span className="font-semibold text-ink">₹5,000</span>
+                <span className="font-semibold text-ink">₹{policy.monthly_cap?.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -84,8 +137,8 @@ export default function Policy() {
           <div className="bg-surface-sunken p-5 rounded-xl border border-border/50">
             <h3 className="font-bold text-ink uppercase tracking-wider text-xs mb-4">Coverage Usage</h3>
             <div className="space-y-4">
-              <ProgressBar label="Weekly Cap Utilized" used={580} cap={2000} color="bg-indigo" />
-              <ProgressBar label="Monthly Cap Utilized" used={1450} cap={5000} color="bg-teal" />
+              <ProgressBar label="Weekly Cap Utilized" used={usage.weekly_total} cap={policy.weekly_cap || 2000} color="bg-indigo" />
+              <ProgressBar label="Monthly Cap Utilized" used={usage.monthly_total} cap={policy.monthly_cap || 5000} color="bg-teal" />
             </div>
           </div>
         </div>

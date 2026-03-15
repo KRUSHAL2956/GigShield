@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bike, ChevronRight, User, Phone, IndianRupee, Shield, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -20,10 +20,28 @@ const ease = [0.4, 0, 0.2, 1];
 
 function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setAuth, setScore } = useAuthStore();
   const [loading, setLoading] = useState(false);
+
+  const fbData = location.state?.firebaseData || {};
+  
+  const sanitizePhone = (phone) => {
+    if (!phone) return '';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('91') && digits.length > 10) {
+      return digits.slice(-10);
+    }
+    return digits.slice(-10);
+  };
+
   const [form, setForm] = useState({
-    name: '', phone: '', city: 'Mumbai', zone: '', platform: 'Swiggy', avg_weekly_earnings: '',
+    name: fbData.name || '', 
+    phone: sanitizePhone(fbData.phone), 
+    city: 'Mumbai', 
+    zone: '', 
+    platform: 'Swiggy', 
+    avg_weekly_earnings: '',
   });
 
   const handleChange = (e) => {
@@ -36,7 +54,9 @@ function Register() {
     setLoading(true);
     try {
       const res = await api.post('/api/riders/register', {
-        ...form, avg_weekly_earnings: parseFloat(form.avg_weekly_earnings),
+        ...form, 
+        avg_weekly_earnings: parseFloat(form.avg_weekly_earnings),
+        firebase_uid: location.state?.firebaseData?.uid // Pass the UID to link the account
       });
       setAuth(res.data.rider, res.data.token);
       if (res.data.score) setScore(res.data.score);
@@ -185,7 +205,7 @@ function Register() {
 
             <p className="text-center text-sm text-ink-muted mt-5">
               Already have an account?{' '}
-              <Link to="/verify" className="text-indigo font-semibold hover:underline">Log in</Link>
+              <Link to="/login" className="text-indigo font-semibold hover:underline">Log in</Link>
             </p>
           </div>
 

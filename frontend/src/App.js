@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 // Public & Landing
 import Landing from './pages/landing/Landing';
 import Register from './pages/rider/Register';
+import Login from './pages/rider/Login';
 import Verify from './pages/rider/Verify';
 import Onboarding from './pages/rider/Onboarding';
 
@@ -25,11 +26,12 @@ import AdminFraud from './pages/admin/Fraud';
 import AdminAnalytics from './pages/admin/Analytics';
 
 import useAuthStore from './store/authStore';
+import api from './api/axios';
 
 function ProtectedRoute({ children, reqAdmin = false }) {
   const { token, rider } = useAuthStore();
   
-  if (!token) return <Navigate to="/register" replace />;
+  if (!token) return <Navigate to="/login" replace />;
 
   if (reqAdmin && rider?.role !== 'admin') {
      return <Navigate to="/dashboard" replace />;
@@ -39,6 +41,33 @@ function ProtectedRoute({ children, reqAdmin = false }) {
 }
 
 function App() {
+  const { token, rider, setAuth, logout } = useAuthStore();
+  const [initializing, setInitializing] = useState(true);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      if (token && !rider) {
+        try {
+          const res = await api.get('/api/riders/me');
+          setAuth(res.data.rider, token);
+        } catch (err) {
+          console.error('Failed to re-hydrate auth:', err);
+          logout();
+        }
+      }
+      setInitializing(false);
+    };
+    initAuth();
+  }, [token, rider, setAuth, logout]);
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo"></div>
+      </div>
+    );
+  }
+
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Toaster position="top-center" toastOptions={{ style: { borderRadius: '12px', fontFamily: 'DM Sans, sans-serif' } }} />
@@ -46,6 +75,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<Landing />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/verify" element={<Verify />} />
         
         {/* Onboarding */}

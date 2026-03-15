@@ -56,4 +56,31 @@ router.get('/city-stats', async (req, res) => {
   }
 });
 
+// GET /api/public/global-stats
+// Returns simulated real-time platform stats
+router.get('/global-stats', (req, res) => {
+  // Base numbers
+  const BASE_RIDERS = 14200;
+  const BASE_PAYOUTS = 8524190;
+  
+  // Use current time to create a deterministic but growing number
+  const now = new Date();
+  const minutesSinceEpoch = Math.floor(now.getTime() / 60000);
+  const hoursSinceEpoch = Math.floor(now.getTime() / 3600000);
+
+  // Growth: ~1 rider every 5 mins, ~₹500 every 2 mins
+  const activeRiders = BASE_RIDERS + Math.floor(minutesSinceEpoch / 5);
+  const payoutsSent = BASE_PAYOUTS + Math.floor(minutesSinceEpoch / 2) * 500;
+  
+  // Live events: 3-12 based on hour
+  const liveEvents = 3 + (hoursSinceEpoch % 10);
+
+  res.json({
+    activeRiders,
+    payoutsSent,
+    liveEvents,
+    timestamp: now.toISOString()
+  });
+});
+
 module.exports = router;

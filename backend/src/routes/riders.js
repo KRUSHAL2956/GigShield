@@ -1,11 +1,30 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { z } = require('zod');
+const admin = require('firebase-admin');
 const Rider = require('../models/rider');
+const Policy = require('../models/policy');
+const Claim = require('../models/claim');
+const DeliveryLog = require('../models/delivery');
 const { generateToken, authMiddleware } = require('../middleware/auth');
 const axios = require('axios');
 
 const router = express.Router();
+
+// Get current authenticated rider profile
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const rider = await Rider.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ error: 'Rider not found' });
+    }
+    const { password_hash, ...sanitizedRider } = rider;
+    res.json({ rider: sanitizedRider });
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 // Validation schemas
@@ -22,7 +41,8 @@ const registerSchema = z.object({
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number')
-    .optional()
+    .optional(),
+  firebase_uid: z.string().min(1).max(128).optional()
 });
 
 const loginSchema = z.object({
@@ -61,7 +81,8 @@ router.post('/register', async (req, res) => {
       zone: data.zone,
       platform: data.platform,
       avg_weekly_earnings: data.avg_weekly_earnings,
-      password_hash
+      password_hash,
+      firebase_uid: data.firebase_uid
     });
 
     // Generate JWT token
@@ -109,29 +130,27 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const data = loginSchema.parse(req.body);
-
+    
+    // Find rider
     const rider = await Rider.findByPhoneWithHash(data.phone);
     if (!rider) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid phone or password' });
     }
 
-    // For demo: accept configured OTP check or check password
-    if (data.otp) {
-      if (!process.env.ALLOW_DEMO_OTP || data.otp !== process.env.ALLOW_DEMO_OTP) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-    } else if (data.password) {
-      const valid = await bcrypt.compare(data.password, rider.password_hash);
-      if (!valid) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-    } else {
-      return res.status(400).json({ error: 'Provide OTP or password' });
+    // Verify password (Traditional login requires password)
+    if (!data.password) {
+      return res.status(400).json({ error: 'Password required' });
     }
 
+    const isValid = await bcrypt.compare(data.password, rider.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid phone or password' });
+    }
+
+    // Generate JWT token
     const token = generateToken(rider);
+    const { password_hash, ...safeRider } = rider;
 
-    const { password_hash: _pw, ...safeRider } = rider;
     res.json({
       message: 'Login successful',
       rider: safeRider,
@@ -143,6 +162,53 @@ router.post('/login', async (req, res) => {
     }
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// POST /api/riders/auth/firebase
+router.post('/auth/firebase', async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) return res.status(400).json({ error: 'ID Token required' });
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { uid, phone_number, email, displayName } = decodedToken;
+    const name = displayName; // fallback
+
+    // 1. Try finding by firebase_uid
+    let rider = await Rider.findByFirebaseUid(uid);
+    
+    // 2. If not found, try finding by phone (for SMS OTP users)
+    if (!rider && phone_number) {
+      // Canonical normalization: remove any non-digit prefix and use last 10 digits for Indian numbers
+      const normalizedPhone = phone_number.replace(/\D/g, '').slice(-10);
+      rider = await Rider.findByPhone(normalizedPhone);
+      if (rider) {
+        // Link the UID to this rider for future logins
+        await Rider.updateFirebaseUid(rider.id, uid);
+      }
+    }
+
+    if (!rider) {
+      // If still not found, this is a new user or needs registration
+      return res.status(200).json({ 
+        message: 'Registration required', 
+        needsRegistration: true,
+        firebaseData: { uid, phone: phone_number, email, name }
+      });
+    }
+
+    const token = generateToken(rider);
+    const { password_hash: _pw, ...safeRider } = rider;
+    
+    res.json({
+      message: 'Login successful',
+      rider: safeRider,
+      token
+    });
+  } catch (err) {
+    console.error('Firebase Auth Error:', err);
+    res.status(401).json({ error: 'Invalid Firebase token' });
   }
 });
 
@@ -204,7 +270,7 @@ router.get('/:id/score', authMiddleware, async (req, res) => {
         });
       } catch (mlErr) {
         console.warn('ML service unavailable:', mlErr.message);
-        return res.status(503).json({
+        return res.status(200).json({
           rider: {
             id: rider.id,
             name: rider.name,
@@ -240,6 +306,63 @@ router.get('/:id/score', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Score fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch score' });
+  }
+});
+
+// GET /api/riders/:id/dashboard-summary
+router.get('/:id/dashboard-summary', authMiddleware, async (req, res) => {
+  const riderId = parseInt(req.params.id);
+  if (req.user.id !== riderId && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const stats = await Rider.getDashboardStats(riderId);
+    const recentClaims = await Claim.findByRiderId(riderId, 3);
+    const recentDeliveries = await DeliveryLog.getRecentDeliveries(riderId, 5);
+    
+    res.json({
+      stats,
+      recentClaims,
+      recentDeliveries
+    });
+  } catch (err) {
+    console.error('Dashboard summary error:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard summary' });
+  }
+});
+
+// GET /api/riders/:id/policy
+router.get('/:id/policy', authMiddleware, async (req, res) => {
+  const riderId = parseInt(req.params.id);
+  if (req.user.id !== riderId && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const policy = await Policy.findActiveByRiderId(riderId);
+    const usage = await Policy.getCoverageUsage(riderId);
+    res.json({ policy, usage });
+  } catch (err) {
+    console.error('Policy fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch policy info' });
+  }
+});
+
+// GET /api/riders/:id/claims
+router.get('/:id/claims', authMiddleware, async (req, res) => {
+  const riderId = parseInt(req.params.id);
+  if (req.user.id !== riderId && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const claims = await Claim.findByRiderId(riderId, 50);
+    const stats = await Claim.getStats(riderId);
+    res.json({ claims, stats });
+  } catch (err) {
+    console.error('Claims fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch claims history' });
   }
 });
 
