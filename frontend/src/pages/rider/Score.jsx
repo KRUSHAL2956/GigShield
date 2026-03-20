@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Target, Award, Star, History, Calendar, Map, RefreshCw, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Target, Award, Star, History, Calendar, Map, RefreshCw, AlertTriangle, Shield } from 'lucide-react';
 import axios from 'axios';
 import useAuthStore from '../../store/authStore';
 import TierBadge from '../../components/TierBadge';
@@ -59,10 +59,10 @@ export default function Score() {
   };
 
   const factors = [
-    { label: 'Rating', val: displayScore.breakdown.rating, max: 20, icon: Star, color: 'bg-indigo' },
-    { label: 'Tenure', val: displayScore.breakdown.tenure, max: 15, icon: Award, color: 'bg-indigo' },
-    { label: 'Earnings', val: displayScore.breakdown.earnings, max: 20, icon: Target, color: 'bg-teal' },
-    { label: 'Claims History', val: displayScore.breakdown.claims, max: 20, icon: History, color: 'bg-teal' },
+    { label: 'Rating', val: displayScore.breakdown.rating, max: 20, icon: Star, color: 'bg-forest' },
+    { label: 'Tenure', val: displayScore.breakdown.tenure, max: 15, icon: Award, color: 'bg-forest' },
+    { label: 'Earnings', val: displayScore.breakdown.earnings, max: 20, icon: Target, color: 'bg-mint' },
+    { label: 'Claims History', val: displayScore.breakdown.claims, max: 20, icon: History, color: 'bg-mint' },
     { label: 'Active Days', val: displayScore.breakdown.consistency, max: 15, icon: Calendar, color: 'bg-amber' },
     { label: 'Zone Risk', val: displayScore.breakdown.city_risk, max: 10, icon: Map, color: 'bg-amber' },
   ];
@@ -113,7 +113,7 @@ export default function Score() {
       <div className="grid md:grid-cols-3 gap-8">
         {/* Left Col: The Ring */}
         <div className="md:col-span-1">
-          <div className="card p-8 flex flex-col items-center text-center relative overflow-hidden h-full justify-center">
+          <div className="card-gigshield !p-8 flex flex-col items-center text-center relative overflow-hidden h-full justify-center">
             
             <div className="relative w-48 h-48 mb-6">
               <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
@@ -128,8 +128,8 @@ export default function Score() {
                 />
                 <defs>
                   <linearGradient id="score-gradient-ring" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#4a1d96" />
-                    <stop offset="100%" stopColor="#0d9488" />
+                    <stop offset="0%" stopColor="#00332c" />
+                    <stop offset="100%" stopColor="#29f59f" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -143,15 +143,25 @@ export default function Score() {
             <p className="text-sm text-ink-muted mt-2">
               Based on Last 30 Days
             </p>
+
+            <div className="mt-8 pt-8 border-t border-border w-full">
+               <div className="flex items-center gap-3 justify-center text-forest">
+                  <Shield className="w-5 h-5 text-mint animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-widest">Verified Account</span>
+               </div>
+               <p className="text-[10px] text-ink-muted mt-2 font-bold leading-tight">
+                 GPS Anti-Spoofing Active <br /> No Fraud Flags Detected
+               </p>
+            </div>
           </div>
         </div>
 
         {/* Right Col: Breakdown */}
         <div className="md:col-span-2">
-          <div className="card p-6 sm:p-8 h-full">
+          <div className="card-gigshield sm:!p-8 !p-6 h-full">
              <h3 className="font-bold text-ink uppercase tracking-wider text-xs mb-8 flex items-center justify-between">
                 Factor Breakdown
-                <span className="badge bg-indigo-soft text-indigo">Premium: {displayScore.premium_pct}%</span>
+                <span className="badge bg-mint/20 text-forest border border-mint/40 shadow-sm">Premium: {displayScore.premium_pct}%</span>
              </h3>
              
              <div className="space-y-6">
@@ -183,10 +193,10 @@ export default function Score() {
       </div>
 
       {displayScore.tier === 'Titanium' && (
-      <div className="mt-8 bg-indigo text-white p-8 rounded-[1.5rem] relative overflow-hidden shadow-float">
-         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
-         <h3 className="font-display font-bold text-2xl mb-2 relative z-10">Titanium Benefits</h3>
-         <p className="text-indigo-200 mb-6 max-w-lg relative z-10">You're in our top tier! Keep maintaining your rating and consistency to keep these perks.</p>
+      <div className="mt-8 bg-forest text-white p-8 rounded-[1.5rem] relative overflow-hidden shadow-float">
+         <div className="absolute top-0 right-0 w-64 h-64 bg-mint/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+         <h3 className="font-display font-bold text-2xl mb-2 relative z-10 text-mint">Titanium Benefits</h3>
+         <p className="text-white/80 mb-6 max-w-lg relative z-10">You're in our top tier! Keep maintaining your rating and consistency to keep these perks.</p>
          
          <div className="grid sm:grid-cols-3 gap-6 relative z-10">
             <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
@@ -209,7 +219,7 @@ export default function Score() {
       )}
 
       {displayScore.tier !== 'Titanium' && (
-      <div className="mt-8 card p-8 border-amber-200 bg-amber-50">
+      <div className="mt-8 card-gigshield !p-8 border-amber-200 bg-amber-50">
          <h3 className="font-display font-bold text-xl text-amber-800 mb-2 flex items-center gap-2">
             <Target className="w-5 h-5" /> Next Tier Teaser
          </h3>

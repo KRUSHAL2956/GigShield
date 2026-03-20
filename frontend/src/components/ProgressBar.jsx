@@ -13,12 +13,12 @@ export default function ProgressBar({ label, used, cap, valueText, color = 'bg-i
         <span className="text-ink-muted font-medium block">{label}</span>
         <span className="text-ink font-semibold">{displayValue}</span>
       </div>
-      <div className="h-1.5 bg-surface-sunken rounded-full overflow-hidden">
+      <div className="h-2.5 bg-surface-sunken rounded-full overflow-hidden border border-border/50">
         <motion.div 
-          className={`h-full rounded-full ${color}`}
+          className={`h-full rounded-full ${color} shadow-[0_0_12px_-2px_rgba(41,245,159,0.3)]`}
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: 1, ease: 'easeOut' }}
         />
       </div>
     </div>

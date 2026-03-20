@@ -3,12 +3,12 @@ const DeliveryLog = require('./delivery');
 
 const Rider = {
   // Create a new rider
-  async create({ name, phone, city, zone, platform, avg_weekly_earnings, password_hash, firebase_uid }) {
+  async create({ name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id, password_hash, firebase_uid }) {
     const result = await pool.query(
-      `INSERT INTO riders (name, phone, city, zone, platform, avg_weekly_earnings, password_hash, firebase_uid)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, name, phone, city, zone, platform, avg_weekly_earnings, tenure_months, lifetime_avg_rating, created_at`,
-      [name, phone, city, zone, platform, avg_weekly_earnings, password_hash, firebase_uid]
+      `INSERT INTO riders (name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id, password_hash, firebase_uid)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id, tenure_months, lifetime_avg_rating, created_at`,
+      [name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id, password_hash, firebase_uid]
     );
     return result.rows[0];
   },
@@ -16,10 +16,21 @@ const Rider = {
   // Find rider by phone (Sanitized)
   async findByPhone(phone) {
     const result = await pool.query(
-      `SELECT id, name, phone, city, zone, platform, avg_weekly_earnings, 
-              tenure_months, lifetime_avg_rating, is_active, created_at 
+      `SELECT id, name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id,
+              tenure_months, lifetime_avg_rating, is_active, firebase_uid, created_at 
        FROM riders WHERE phone = $1`,
       [phone]
+    );
+    return result.rows[0] || null;
+  },
+
+  // Find rider by email
+  async findByEmail(email) {
+    const result = await pool.query(
+      `SELECT id, name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id,
+              tenure_months, lifetime_avg_rating, is_active, firebase_uid, created_at 
+       FROM riders WHERE email = $1`,
+      [email]
     );
     return result.rows[0] || null;
   },
@@ -36,7 +47,7 @@ const Rider = {
   // Find rider by ID
   async findById(id) {
     const result = await pool.query(
-      `SELECT id, name, phone, city, zone, platform, avg_weekly_earnings,
+      `SELECT id, name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id,
               tenure_months, lifetime_avg_rating, is_active, created_at
        FROM riders WHERE id = $1`,
       [id]
@@ -97,7 +108,7 @@ const Rider = {
   // Find rider by Firebase UID
   async findByFirebaseUid(uid) {
     const result = await pool.query(
-      `SELECT id, name, phone, city, zone, platform, avg_weekly_earnings,
+      `SELECT id, name, email, phone, city, zone, platform, avg_weekly_earnings, upi_id,
               tenure_months, lifetime_avg_rating, is_active, created_at
        FROM riders WHERE firebase_uid = $1`,
       [uid]

@@ -6,20 +6,20 @@ const DeliveryLog = {
     if (!rider_id || isNaN(Number(rider_id)) || Number(rider_id) <= 0 || delivery_earning === undefined || premium_pct === undefined || isNaN(delivery_earning) || isNaN(premium_pct) || Number(delivery_earning) < 0 || Number(premium_pct) < 0 || Number(premium_pct) > 100) {
       throw new Error("Invalid earning or premium inputs");
     }
-    const cents = Math.round(Number(delivery_earning) * 100);
-    const premium_cents = Math.round(cents * (Number(premium_pct) / 100));
+    const premium_amount = Number(delivery_earning) * (Number(premium_pct) / 100);
     
     const result = await pool.query(
       `INSERT INTO delivery_logs (rider_id, delivery_earning, premium_deducted)
        VALUES ($1, $2, $3)
        RETURNING id, rider_id, delivery_earning, premium_deducted, created_at`,
-      [rider_id, cents, premium_cents]
+      [rider_id, Number(delivery_earning), premium_amount]
     );
     
+    const row = result.rows[0];
     return {
-      ...result.rows[0],
-      delivery_earning: result.rows[0].delivery_earning / 100,
-      premium_deducted: result.rows[0].premium_deducted / 100
+      ...row,
+      delivery_earning: Number(row.delivery_earning) / 100,
+      premium_deducted: Number(row.premium_deducted) / 100
     };
   },
 
@@ -35,7 +35,7 @@ const DeliveryLog = {
        AND created_at >= date_trunc('week', CURRENT_DATE)`,
       [rider_id]
     );
-    return parseInt(result.rows[0].total) / 100;
+    return parseFloat(result.rows[0].total);
   },
   
   // Get recent deliveries for tracking
@@ -54,8 +54,8 @@ const DeliveryLog = {
     );
     return result.rows.map(row => ({
       ...row,
-      delivery_earning: row.delivery_earning / 100,
-      premium_deducted: row.premium_deducted / 100
+      delivery_earning: Number(row.delivery_earning) / 100,
+      premium_deducted: Number(row.premium_deducted) / 100
     }));
   }
 };

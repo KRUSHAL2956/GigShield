@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS riders (
     created_at      TIMESTAMP DEFAULT NOW(),
     updated_at      TIMESTAMP DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_riders_phone ON riders(phone);
 
 -- 2. Actual earnings per week
 CREATE TABLE IF NOT EXISTS weekly_earnings (
@@ -141,8 +142,8 @@ CREATE TABLE IF NOT EXISTS weekly_coverage_usage (
 CREATE TABLE IF NOT EXISTS delivery_logs (
     id              SERIAL PRIMARY KEY,
     rider_id        INTEGER NOT NULL REFERENCES riders(id) ON DELETE CASCADE,
-    delivery_earning INTEGER NOT NULL,
-    premium_deducted INTEGER NOT NULL,
+    delivery_earning DECIMAL(10,2) NOT NULL,
+    premium_deducted DECIMAL(10,2) NOT NULL,
     policy_id       INTEGER REFERENCES policies(id),
     created_at      TIMESTAMP DEFAULT NOW()
 );

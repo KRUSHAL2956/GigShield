@@ -24,10 +24,10 @@ export default function Layout() {
         {/* Mobile Top Header */}
         <header className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-border h-14 flex items-center px-4">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-indigo flex items-center justify-center">
-              <Shield className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+            <div className="w-7 h-7 rounded-md bg-forest flex items-center justify-center">
+              <Shield className="w-3.5 h-3.5 text-mint" strokeWidth={2.5} />
             </div>
-            <span className="font-display font-bold text-ink tracking-tight">GigShield</span>
+            <span className="font-display font-bold text-forest tracking-tight">GigShield</span>
           </Link>
         </header>
 
@@ -50,11 +50,11 @@ export default function Layout() {
                   to={n.to}
                   aria-current={active ? 'page' : undefined}
                   className={`flex-1 flex flex-col items-center py-2.5 transition-colors ${
-                    active ? 'text-indigo' : 'text-ink-muted'
+                    active ? 'text-forest' : 'text-ink-muted'
                   }`}
                 >
                   <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
-                  <span className="text-[11px] font-semibold mt-0.5">{n.label}</span>
+                  <span className={`text-[11px] font-bold mt-0.5 ${active ? 'text-forest' : 'text-ink-muted'}`}>{n.label}</span>
                 </Link>
               );
             })}

@@ -19,7 +19,12 @@ if (!databaseUrl) {
 
 const pool = new Pool({
   connectionString: databaseUrl,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { 
+        rejectUnauthorized: true, 
+        ca: process.env.DB_SSL_CA ? fs.readFileSync(process.env.DB_SSL_CA).toString() : undefined 
+      } 
+    : false
 });
 
 async function initDb() {
@@ -87,6 +92,52 @@ async function initDb() {
     } catch (err) {
        console.error('❌ Failed to add lifetime_avg_rating to riders:', err.message);
        throw err;
+    }
+
+    // 4. Create rider_pings for Anti-Spoofing
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS rider_pings (
+          id SERIAL PRIMARY KEY,
+          rider_id INTEGER REFERENCES riders(id) ON DELETE CASCADE,
+          lat DECIMAL(10, 8) NOT NULL,
+          lng DECIMAL(11, 8) NOT NULL,
+          accuracy DECIMAL(5, 2),
+          speed DECIMAL(5, 2),
+          timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          is_mocked BOOLEAN DEFAULT false
+        );
+      `);
+      console.log('✅ rider_pings table created.');
+      
+      // Scale Indexes
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_pings_rider_time ON rider_pings(rider_id, timestamp DESC);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_riders_phone ON riders(phone);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_riders_email ON riders(email);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_riders_firebase ON riders(firebase_uid);`);
+      console.log('✅ Performance indexes created.');
+    } catch (err) {
+      console.error('❌ Failed to create rider_pings or indexes:', err.message);
+      throw err;
+    }
+
+    // 5. Create fraud_flags for persistent auditing
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS fraud_flags (
+          id SERIAL PRIMARY KEY,
+          rider_id INTEGER REFERENCES riders(id) ON DELETE CASCADE,
+          city VARCHAR(100),
+          risk_score DECIMAL(3, 2),
+          reason TEXT,
+          metadata JSONB,
+          flagged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      console.log('✅ fraud_flags table created.');
+    } catch (err) {
+      console.error('❌ Failed to create fraud_flags table:', err.message);
+      throw err;
     }
 
     console.log('🎉 Database migrations complete!');

@@ -13,6 +13,8 @@ import api from '../../api/axios';
 
 // Mock data removed - fetching from API
 
+// Main entry point for the Rider experience. 
+// Consolidates weather alerts, earnings stats, and active claims into a single view.
 export default function Dashboard() {
   const navigate = useNavigate();
   const { rider, score } = useAuthStore();
@@ -20,8 +22,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Fallback score if the scoring engine hasn't processed this rider yet
   const activeScore = score || { total_score: 97, premium_pct: 1.25, tier: 'Titanium' };
 
+  // Fetch comprehensive summary of the rider's activity (claims, deliveries, and generic stats)
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!rider?.id) {
@@ -32,8 +36,8 @@ export default function Dashboard() {
         const res = await api.get(`/api/riders/${rider.id}/dashboard-summary`);
         setData(res.data);
       } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
+        console.error('Dashboard data sync failed:', err);
+        setError('We encountered a problem loading your dashboard. Please refresh or try again later.');
         setData(null);
       } finally {
         setLoading(false);
@@ -42,12 +46,14 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [rider?.id]);
 
+  // Loading state placeholder - keeps the layout from jumping
   if (loading) return (
     <div className="flex items-center justify-center min-h-[400px]">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo"></div>
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-forest"></div>
     </div>
   );
 
+  // Critical error boundary for the dashboard data
   if (error) return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="text-red px-4 py-3 bg-red/10 border border-red/20 rounded-lg">
@@ -60,7 +66,7 @@ export default function Dashboard() {
   const claims = data?.recentClaims || [];
   const deliveries = data?.recentDeliveries || [];
 
-  // Map deliveries to chart data
+  // Transform delivery history into a format suitable for the Area Chart component
   const chartData = deliveries.length > 0 
     ? deliveries.map((d, i) => ({ name: `D${deliveries.length - i}`, value: d.delivery_earning }))
     : [{ name: 'No data', value: 0 }];
@@ -75,7 +81,7 @@ export default function Dashboard() {
       }}
       className="max-w-4xl mx-auto"
     >
-      {/* ── Header ── */}
+      {/* ── Welcome Header ── */}
       <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-display font-bold text-3xl text-ink">
@@ -92,7 +98,7 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* ── Weather Widget Alert ── */}
+      {/* ── Hyper-local Weather Risk Alert ── */}
       <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="mb-8">
         <WeatherWidget 
           city={rider?.city || 'Mumbai'}
@@ -104,38 +110,38 @@ export default function Dashboard() {
         />
       </motion.div>
 
-      {/* ── Key Metrics ── */}
+      {/* ── Key Financial & Coverage Metrics ── */}
       <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={IndianRupee} label="Weekly Earnings" value={`₹${(stats.weekly_earnings ?? 0).toLocaleString()}`} accent="indigo" />
-        <StatCard icon={Shield} label="Premium Paid" value={`₹${(stats.premium_paid ?? 0).toLocaleString()}`} accent="teal" />
+        <StatCard icon={IndianRupee} label="Weekly Earnings" value={`₹${(stats.weekly_earnings ?? 0).toLocaleString()}`} accent="forest" />
+        <StatCard icon={Shield} label="Premium Paid" value={`₹${(stats.premium_paid ?? 0).toLocaleString()}`} accent="mint" />
         <StatCard icon={ShieldAlert} label="Coverage Left" value={`₹${(stats.coverage_left ?? 0).toLocaleString()}`} accent="amber" />
         <StatCard icon={CloudLightning} label="Payouts Recv." value={`₹${(stats.payouts_received ?? 0).toLocaleString()}`} accent="coral" />
       </motion.div>
 
-      {/* ── Charts & Policy ── */}
+      {/* ── Interactive Charts & Policy Caps ── */}
       <div className="grid md:grid-cols-3 gap-6 mb-8">
         
-        {/* Earnings Chart */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="md:col-span-2 card p-6">
+        {/* Visual trend of recent delivery income */}
+        <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="md:col-span-2 card-gigshield sm:p-6 p-4">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-ink uppercase tracking-wider text-xs">Earnings Overview</h3>
             <span className="text-xs font-semibold px-2 py-1 bg-surface-sunken rounded-md text-ink-muted">Recent Deliveries</span>
           </div>
-          <Chart data={chartData} type="area" color="#4a1d96" valueFormatter={(val) => `₹${val}`} />
+          <Chart data={chartData} type="area" color="#00332c" valueFormatter={(val) => `₹${val}`} />
         </motion.div>
 
-        {/* Coverage Usage */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="card p-6 flex flex-col justify-between">
+        {/* Real-time bar showing progress against total policy limits */}
+        <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="card-gigshield sm:p-6 p-4 flex flex-col justify-between">
           <div>
             <h3 className="font-bold text-ink uppercase tracking-wider text-xs mb-6">Policy Usage</h3>
             <div className="space-y-6">
-              <ProgressBar label="Weekly Cap" used={2000 - stats.coverage_left} cap={2000} color="bg-indigo" />
-              <ProgressBar label="Monthly Cap" used={stats.payouts_received} cap={5000} color="bg-teal" />
+              <ProgressBar label="Weekly Cap" used={2000 - stats.coverage_left} cap={2000} color="bg-forest" />
+              <ProgressBar label="Monthly Cap" used={stats.payouts_received} cap={5000} color="bg-mint" />
             </div>
           </div>
           <button 
             onClick={() => navigate('/policy')}
-            className="btn-ghost w-full justify-center mt-6 text-indigo text-sm"
+            className="btn-gigshield-outline w-full justify-center mt-6 text-sm !border-forest !text-forest"
           >
             View Policy Details
           </button>
@@ -143,17 +149,17 @@ export default function Dashboard() {
 
       </div>
 
-      {/* ── Micro-Premiums Live Ticker ── */}
-      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="card p-6 mb-8 bg-indigo-soft/50 border-indigo-200">
+      {/* ── Micro-Premiums Live Ticker: Showing real-time deductions per delivery ── */}
+      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="card-gigshield sm:p-6 p-4 mb-8 bg-mint/5 border-mint/20">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-indigo uppercase tracking-wider text-xs flex items-center gap-2">
+          <h3 className="font-black text-forest uppercase tracking-wider text-[10px] flex items-center gap-2">
              <span className="relative flex h-2 w-2">
-                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo opacity-75"></span>
-                 <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo"></span>
+                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mint opacity-75"></span>
+                 <span className="relative inline-flex rounded-full h-2 w-2 bg-mint"></span>
              </span>
-             Live Ticker: Today's Deliveries
+             Live Activity: Today's Deliveries
           </h3>
-          <span className="text-xs font-semibold px-2 py-1 bg-white rounded-md text-indigo shadow-sm">Cap Progress: ₹130 / ₹150</span>
+          <span className="text-[10px] font-black px-3 py-1 bg-white border border-mint/20 rounded-full text-forest shadow-sm tracking-widest uppercase">Cap Progress: ₹130 / ₹150</span>
         </div>
         
         <div className="space-y-3">
@@ -164,8 +170,8 @@ export default function Dashboard() {
                    <div className="font-semibold text-sm text-ink">Delivery #{delivery.id}</div>
                 </div>
                  <div className="text-right">
-                    <div className="text-sm font-bold text-emerald-600">+₹{delivery.delivery_earning}</div>
-                    <div className="text-xs text-coral font-medium">-₹{(Number(delivery.premium_deducted ?? 0)).toFixed(2)} premium</div>
+                    <div className="text-sm font-bold text-forest">+₹{delivery.delivery_earning}</div>
+                    <div className="text-xs text-red-500 font-medium">-₹{(Number(delivery.premium_deducted ?? 0)).toFixed(2)} premium</div>
                  </div>
              </div>
           )) : (
@@ -174,13 +180,13 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* ── Recent Claims ── */}
-      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="card p-6">
+      {/* ── Recent Claims: History of automated payouts ── */}
+      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="card-gigshield sm:p-6 p-4">
         <div className="flex justify-between items-center mb-6">
           <h3 className="font-bold text-ink uppercase tracking-wider text-xs">Recent Claims</h3>
           <button 
             onClick={() => navigate('/claims')}
-            className="text-indigo text-sm font-semibold hover:underline"
+            className="text-forest text-[11px] font-black tracking-widest uppercase hover:text-mint transition-colors"
           >
             View All
           </button>

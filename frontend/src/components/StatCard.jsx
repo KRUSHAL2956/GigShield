@@ -1,15 +1,16 @@
 import React from 'react';
 
-export default function StatCard({ icon: Icon, label, value, sub, accent = 'indigo' }) {
+export default function StatCard({ icon: Icon, label, value, sub, accent = 'forest' }) {
   const styles = {
-    coral: { bg: 'bg-coral-soft', fg: 'text-coral' },
-    indigo: { bg: 'bg-indigo-soft', fg: 'text-indigo' },
-    teal: { bg: 'bg-teal-soft', fg: 'text-teal' },
-    amber: { bg: 'bg-amber-soft', fg: 'text-amber' },
-  }[accent] || { bg: 'bg-indigo-soft', fg: 'text-indigo' };
+    coral: { bg: 'bg-red-50', fg: 'text-red-500' },
+    forest: { bg: 'bg-forest/5', fg: 'text-forest' },
+    mint: { bg: 'bg-mint/20', fg: 'text-forest' },
+    teal: { bg: 'bg-emerald-50', fg: 'text-emerald-600' },
+    amber: { bg: 'bg-amber-50', fg: 'text-amber-500' },
+  }[accent] || { bg: 'bg-forest/5', fg: 'text-forest' };
 
   return (
-    <div className="card p-5 transition-all duration-300 hover:shadow-card hover:-translate-y-[2px]">
+    <div className="card-gigshield !p-5 transition-all duration-300 hover:shadow-card hover:-translate-y-[2px]">
       <div className="flex items-start justify-between mb-3">
         <div className={`w-9 h-9 rounded-lg ${styles.bg} flex items-center justify-center`}>
           {Icon && <Icon className={`w-[18px] h-[18px] ${styles.fg}`} strokeWidth={2} />}

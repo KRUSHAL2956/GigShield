@@ -1,35 +1,71 @@
-import axios from 'axios';
+import axios from "axios";
+import { auth } from "../utils/firebase";
 
-const isProduction = window.location.hostname.endsWith('vercel.app');
-const API_URL = process.env.REACT_APP_API_URL || 
-                (isProduction ? 'https://gig-shield-backend.vercel.app' : 'http://127.0.0.1:5000');
+const isProduction = window.location.hostname.endsWith("vercel.app");
+
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  (isProduction
+    ? "https://gig-shield-backend.vercel.app"
+    : `http://${window.location.hostname}:5000`);
 
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
-// Add auth token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('gigshield_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+/**
+ * Get Firebase ID Token safely
+ */
+async function getFirebaseToken() {
+  const user = auth.currentUser;
 
-// Handle auth errors
+  if (!user) return null;
+
+  try {
+    return await user.getIdToken();
+  } catch (error) {
+    console.error("Firebase token error:", error);
+    return null;
+  }
+}
+
+/**
+ * Request interceptor
+ * Attaches purely Firebase or Custom token automatically
+ */
+api.interceptors.request.use(
+  async (config) => {
+    // 1. Try Firebase token (Google Sign-In) - Custom JWTs are now handled via HttpOnly Cookies seamlessly
+    const firebaseToken = await getFirebaseToken();
+
+    if (firebaseToken) {
+      config.headers.Authorization = `Bearer ${firebaseToken}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+/**
+ * Response interceptor
+ * Handles auth errors
+ */
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('gigshield_token');
-      if (window.location.pathname !== '/register' && window.location.pathname !== '/') {
-        window.location.href = '/register';
+      const authPages = ["/login", "/register", "/verify", "/"];
+
+      if (!authPages.includes(window.location.pathname)) {
+        window.location.href = "/login";
       }
     }
+
     return Promise.reject(error);
   }
 );

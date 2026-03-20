@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Users, Radio, AlertTriangle, TrendingUp, LogOut } from 'lucide-react';
+import useAuthStore from '../../store/authStore';
 
 const ADMIN_NAV = [
   { to: '/admin/dashboard', label: 'Company Overview', icon: LayoutDashboard },
@@ -13,10 +14,17 @@ const ADMIN_NAV = [
 export default function AdminLayout() {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const { logout } = useAuthStore();
 
-  const handleLogout = () => {
-    localStorage.removeItem('gigshield_token');
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (err) {
+      console.error('Admin logout failed:', err);
+      // Ensure redirection even on failure
+      navigate('/');
+    }
   };
 
   return (
@@ -25,7 +33,7 @@ export default function AdminLayout() {
       <aside className="hidden md:flex flex-col w-64 h-screen fixed inset-y-0 left-0 bg-ink border-r border-[#2d204a] p-5 z-40 text-white">
         <div className="flex items-center gap-2.5 mb-10 px-2 mt-2 bg-white rounded-lg p-2 max-w-max">
           <img src="/logo.png" alt="GigShield Logo" className="h-8 object-contain" />
-          <span className="text-indigo-400 text-xs tracking-normal ml-1 border rounded px-1.5 py-0.5 border-indigo-400/30">ADMIN</span>
+          <span className="text-[#4f46e5] text-xs tracking-normal ml-1 border rounded px-1.5 py-0.5 border-[#4f46e5]/30">ADMIN</span>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -38,7 +46,7 @@ export default function AdminLayout() {
               className={({ isActive }) => 
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isActive 
-                    ? 'bg-indigo text-white shadow-soft' 
+                    ? 'bg-[#4f46e5] text-white shadow-soft' 
                     : 'text-[#a295c2] hover:bg-[#251842] hover:text-white'
                 }`
               }
@@ -107,7 +115,7 @@ export default function AdminLayout() {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={({ isActive }) => 
                     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      isActive ? 'bg-indigo text-white shadow-soft' : 'text-[#a295c2]'
+                      isActive ? 'bg-[#4f46e5] text-white shadow-soft' : 'text-[#a295c2]'
                     }`
                   }
                 >

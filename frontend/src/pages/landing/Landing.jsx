@@ -1,519 +1,679 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Droplet, Sun, ChevronDown, MonitorPlay, Shield } from 'lucide-react';
+import { 
+  Shield, Zap, UserCheck, CloudRain, BarChart3, 
+  Globe, Check, ChevronDown,
+  Droplet, Sun, Clock
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import LandingNavbar from '../../components/LandingNavbar';
 import MapView from '../../components/MapView';
 import publicService from '../../services/publicService';
 
+// Fallback data for live city monitoring. In production, this syncs with real-time weather APIs.
 const STATIC_CITIES = [
   { city: 'Mumbai', risk: 'HIGH', status: 'Heavy Rain 18mm/hr' },
   { city: 'Delhi', risk: 'HIGH', status: 'Extreme Heat 42°C' },
   { city: 'Bangalore', risk: 'LOW', status: 'Clear 28°C' },
   { city: 'Chennai', risk: 'MODERATE', status: 'Humidity 85%' },
-  { city: 'Pune', risk: 'LOW', status: 'Clear 30°C' },
-  { city: 'Hyderabad', risk: 'LOW', status: 'Clear 32°C' },
-  { city: 'Kolkata', risk: 'MODERATE', status: 'Rain 5mm/hr' }
+  { city: 'Hyderabad', risk: 'LOW', status: 'Clear 31°C' },
+  { city: 'Pune', risk: 'LOW', status: 'Clear 26°C' },
 ];
 
 export default function Landing() {
   const [activeCity, setActiveCity] = React.useState(null);
   const [citiesData, setCitiesData] = React.useState(STATIC_CITIES);
+  const [showAllCities, setShowAllCities] = React.useState(false);
   const [globalStats, setGlobalStats] = React.useState({ activeRiders: 14240, payoutsSent: 8524190, liveEvents: 6 });
-  const [loading, setLoading] = React.useState(true);
 
+  // Initialize stats on mount. We fetch both city-specific and global platform stats concurrently.
   React.useEffect(() => {
     let mounted = true;
     const fetchStats = async () => {
       try {
-        setLoading(true);
         const [liveData, stats] = await Promise.all([
           publicService.getCityStats(),
           publicService.getGlobalStats()
         ]);
-        
         if (liveData && mounted) setCitiesData(liveData);
         if (stats && mounted) setGlobalStats(stats);
       } catch (err) {
+        // If the API is down, we fail silently and stick with the static fallback data
         if (mounted) console.error('[LandingPage] Failed to fetch stats:', err);
-      } finally {
-        if (mounted) setLoading(false);
       }
     };
-
     fetchStats();
-    // Refresh every 10 minutes
-    const interval = setInterval(fetchStats, 10 * 60 * 1000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
+    return () => { mounted = false; }; // Cleanup to prevent state updates on unmounted component
   }, []);
 
-  const revealProps = {
-    initial: { opacity: 0, y: 30 },
-    whileInView: { opacity: 1, y: 0 },
-    viewport: { once: true, margin: "-100px" },
-    transition: { duration: 0.8, ease: "easeOut" }
+  // 🎨 Animation Framer Motion Configs
+  // Custom cubic-bezier for that "premium" feel (smooth entrance, subtle deceleration)
+  const premiumEase = [0.16, 1, 0.3, 1];
+
+  // Base entrance animation for most elements
+  const reveal = {
+    initial: { opacity: 0, y: 30, filter: "blur(10px)" },
+    whileInView: { opacity: 1, y: 0, filter: "blur(0px)" },
+    transition: { duration: 1, ease: premiumEase }
+  };
+
+  // Parent container variant to coordinate staggered child animations
+  const staggerContainer = {
+    initial: {},
+    whileInView: {
+      transition: {
+        staggerChildren: 0.15,
+        delayChildren: 0.1
+      }
+    }
   };
 
   return (
-    <div className="min-h-screen bg-surface font-sans selection:bg-indigo-soft selection:text-indigo">
+    <div className="min-h-screen bg-white selection:bg-mint/30">
       <LandingNavbar />
 
       {/* ── 1. Hero Section ── */}
-      <motion.section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden px-6" {...revealProps}>
-        {/* Background elements */}
-        <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-[800px] h-[800px] bg-indigo-soft rounded-full blur-3xl opacity-50 z-0 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-[600px] h-[600px] bg-coral-soft rounded-full blur-3xl opacity-50 z-0 pointer-events-none" />
-        
-        <div className="max-w-6xl mx-auto relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-            
-            {/* Hero Text */}
-            <motion.div 
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-center lg:text-left"
-            >
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo/10 text-indigo text-[10px] font-bold tracking-[0.1em] uppercase mb-6 border border-indigo/10"
-              >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo"></span>
-                </span>
-                Live in 6 Cities
-              </motion.div>
-              
-              <h1 className="font-display text-5xl lg:text-7xl/tight font-bold text-ink mb-6 tracking-tight">
-                AI Insurance for <br className="hidden lg:block" />
-                <span className="bg-gradient-to-r from-indigo via-violet-600 to-indigo-600 bg-clip-text text-transparent">Food Riders</span>
-              </h1>
-              
-              <p className="text-xl text-ink-muted mb-10 max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
-                Automatically protect your income from rain, heat, floods and pollution. <span className="text-ink">No claims to file. Instant UPI payouts.</span>
-              </p>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-5 justify-center lg:justify-start">
-                <Link to="/register" className="btn-primary w-full sm:w-auto !px-10 !py-4.5 !text-lg !rounded-full shadow-float hover:scale-105 transition-transform">
-                  Get Coverage
-                </Link>
-                <Link to="/onboarding" className="btn-ghost w-full sm:w-auto !px-10 !py-4.5 !text-lg !rounded-full bg-white shadow-sm flex items-center justify-center gap-2 border border-border hover:bg-surface transition-colors">
-                  <MonitorPlay className="w-5 h-5 text-indigo" /> Walkthrough
-                </Link>
-              </div>
-
-              <div className="mt-12 flex items-center justify-center lg:justify-start gap-8">
-                <div className="flex flex-col">
-                  <span className="text-3xl font-display font-bold text-ink tracking-tight flex items-center gap-1.5">
-                    {globalStats.activeRiders.toLocaleString('en-IN')}
-                    <span className="text-indigo text-lg">+</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-ink-muted/60 uppercase tracking-[0.2em] mt-1">Active Riders</span>
-                </div>
-                <div className="w-px h-10 bg-border/60"></div>
-                <div className="flex flex-col">
-                  <span className="text-3xl font-display font-bold text-ink tracking-tight">
-                    ₹{(globalStats.payoutsSent / 100000).toFixed(1)}L
-                    <span className="text-indigo text-lg">+</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-ink-muted/60 uppercase tracking-[0.2em] mt-1">Payouts Sent</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Hero Visual */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.8, rotate: -2 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              transition={{ duration: 1, delay: 0.1, ease: "easeOut" }}
-              className="relative lg:ml-auto"
-            >
-              <div className="absolute inset-0 bg-indigo/10 rounded-full blur-[100px] -z-10 animate-pulse"></div>
-              <img src="/hero.png" alt="Delivery Rider protected by GigShield" className="w-[540px] mx-auto drop-shadow-[0_20px_50px_rgba(79,70,229,0.3)] relative z-10" />
-              
-              {/* Floating Badge */}
-              <motion.div 
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-6 -right-6 md:right-0 bg-white p-4 rounded-2xl shadow-float border border-border flex items-center gap-3 z-20"
-              >
-                <div className="w-10 h-10 rounded-full bg-teal-soft flex items-center justify-center text-teal">
-                  <Shield className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-ink-muted uppercase">Payout Status</p>
-                  <p className="text-sm font-bold text-ink">Sent to UPI • 28s</p>
-                </div>
-              </motion.div>
-            </motion.div>
-
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ── 1.5 Trusted By Marquee ── */}
-      <motion.section className="py-12 border-y border-border bg-white/50 overflow-hidden" {...revealProps}>
-        <div className="max-w-6xl mx-auto px-6">
-          <p className="text-center text-[10px] font-bold text-ink-muted/50 uppercase tracking-[0.2em] mb-8">Trusted by riders from top platforms</p>
-          <div className="flex flex-wrap justify-center items-center gap-16 md:gap-32 opacity-25 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-700">
-             {['Swiggy', 'Zomato', 'Zepto', 'Blinkit'].map(name => (
-               <div key={name} className="flex items-center gap-3 group cursor-default">
-                  <div className="w-9 h-9 rounded-xl bg-ink/5 border border-ink/10 flex items-center justify-center text-ink-muted font-display font-bold text-xs group-hover:bg-indigo group-hover:text-white group-hover:border-indigo transition-all duration-300">{name[0]}</div>
-                  <span className="font-display font-bold text-xl text-ink-muted group-hover:text-ink transition-colors tracking-tight">{name}</span>
-               </div>
-             ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ── 2. Problem Section ── */}
-      <motion.section id="problem" className="py-24 bg-white px-6" {...revealProps}>
-        <div className="max-w-6xl mx-auto">
+      <section className="relative pt-32 pb-16 overflow-hidden">
+        <div className="hero-mint-aura" />
+        <div className="container-custom">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="order-2 lg:order-1 relative group">
-              <div className="absolute inset-0 bg-indigo/5 rounded-[2.5rem] transform rotate-3 transition-transform group-hover:rotate-0 duration-700"></div>
-              <div className="absolute inset-0 bg-coral/5 rounded-[2.5rem] transform -rotate-3 transition-transform group-hover:rotate-0 duration-700"></div>
-              <img src="/triggers.png" alt="Weather triggers" className="relative z-10 w-full rounded-[2.5rem] shadow-2xl border border-white p-4" />
-            </div>
             
-            <div className="order-1 lg:order-2">
-              <h2 className="font-display text-4xl font-bold text-ink mb-6">
-                Food Delivery Riders Lose <span className="text-coral">20–30% Income</span> to Weather.
-              </h2>
-              <p className="text-lg text-ink-muted leading-relaxed mb-6">
-                When heavy rain or extreme heat strikes, you are forced to stop working. The platforms might offer surge pricing, but only *if* you ride in dangerous conditions. 
-              </p>
-              <p className="text-lg text-ink-muted leading-relaxed mb-8">
-                If you stay safe, you lose your daily earnings target.
+            <motion.div 
+               variants={reveal} 
+               initial="initial" 
+               whileInView="whileInView" 
+               viewport={{ once: false, amount: 0.1 }}
+               className="max-w-2xl"
+            >
+                <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-forest text-mint text-[10px] font-black tracking-[0.2em] uppercase mb-10 border border-mint/20 shadow-xl shadow-mint/5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mint opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-mint"></span>
+                  </span>
+                  Live in 6 Cities
+                </div>
+              
+              <h1 className="text-6xl lg:text-[84px] leading-[0.95] font-extrabold text-forest mb-8 tracking-tighter">
+                AI Insurance for <br /> <span className="text-mint">Food Riders</span>
+              </h1>
+              <p className="text-xl text-ink-muted mb-12 max-w-lg leading-relaxed font-medium">
+                Automatically protect your income from rain, heat, floods and pollution. <span className="text-forest font-bold text-lg">No claims to file. Instant UPI payouts.</span>
               </p>
               
-              <div className="space-y-4">
-                {[
-                  { icon: Droplet, t: 'Monsoons', d: 'Average 14 days lost per year in Mumbai' },
-                  { icon: Sun, t: 'Extreme Heat', d: 'Afternoon earnings drop by 40% in Delhi summers' },
-                ].map((item, i) => (
-                  <motion.div 
-                    key={i} 
-                    whileHover={{ x: 10 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                    className="flex items-start gap-4 p-5 rounded-2xl bg-surface/50 border border-transparent hover:border-indigo/10 hover:bg-white transition-all duration-300 shadow-sm hover:shadow-md"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 text-coral border border-border/50">
-                      <item.icon className="w-6 h-6" />
+               <div className="flex items-center gap-5 mb-16">
+                 <Link to="/register" className="btn-gigshield-primary !px-10 !py-5">
+                   Get Coverage &rarr;
+                 </Link>
+                 <a href="#how-it-works" className="btn-gigshield-outline !px-10 !py-5">
+                   Walkthrough &rarr;
+                 </a>
+              </div>
+
+              <div className="flex items-center gap-10">
+                 <div>
+                    <p className="text-3xl font-bold text-forest">{globalStats.activeRiders.toLocaleString('en-IN')}+</p>
+                    <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.2em] mt-1">Active Riders</p>
+                 </div>
+                 <div className="w-px h-10 bg-border" />
+                 <div>
+                    <p className="text-3xl font-bold text-forest">₹{(globalStats.payoutsSent / 100000).toFixed(1)}L+</p>
+                    <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.2em] mt-1">Payouts Sent</p>
+                 </div>
+              </div>
+            </motion.div>
+
+            <motion.div 
+               initial={{ opacity: 0, x: 50 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ duration: 0.8 }}
+               className="relative hidden lg:block"
+            >
+                <motion.div 
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                  className="relative group"
+                >
+                  <img src="/problem_weather.png" alt="GigShield Protection" className="w-full rounded-[40px] drop-shadow-2xl relative z-10" />
+                 <div className="absolute -top-6 -right-6 bg-white p-4 rounded-2xl shadow-float border border-border flex items-center gap-3 z-20">
+                    <div className="w-10 h-10 rounded-full bg-mint/20 flex items-center justify-center text-forest">
+                      <Shield size={20} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-ink text-lg">{item.t}</h4>
-                      <p className="text-sm text-ink-muted leading-relaxed">{item.d}</p>
+                      <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider">Payout Status</p>
+                      <p className="text-sm font-bold text-forest">Sent to UPI • 28s</p>
                     </div>
+                 </div>
+               </motion.div>
+               <div className="absolute inset-0 bg-[#f4fffb] flex items-center justify-center -z-10 rounded-3xl" />
+            </motion.div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ── 2. Trusted By ── */}
+      <section className="py-12 border-y border-border bg-[#f8fbf9]">
+         <div className="container-custom">
+            <p className="text-center text-[11px] font-bold text-ink-muted uppercase tracking-[0.2em] mb-10">Trusted by riders from top platforms</p>
+            <motion.div 
+               variants={staggerContainer}
+               initial="initial"
+               whileInView="whileInView"
+               viewport={{ once: false, amount: 0.1 }}
+               className="flex flex-wrap justify-center items-center gap-12 lg:gap-24"
+             >
+                {['Swiggy', 'Zomato'].map(brand => (
+                  <motion.div key={brand} variants={reveal} viewport={{ once: false, amount: 0.1 }} className="group flex items-center gap-3 transition-all duration-300">
+                    <div className="w-10 h-10 rounded-xl bg-forest/5 text-forest/40 group-hover:bg-forest group-hover:text-white flex items-center justify-center font-bold text-sm transition-all grayscale group-hover:grayscale-0 border border-forest/10">{brand[0]}</div>
+                    <span className="text-2xl font-black italic text-forest/20 group-hover:text-forest uppercase tracking-tighter transition-all">{brand}</span>
                   </motion.div>
                 ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.section>
+            </motion.div>
+         </div>
+      </section>
 
-      {/* ── 3. Solution Section ── */}
-      <motion.section id="how-it-works" className="py-24 bg-ink text-white px-6 overflow-hidden" {...revealProps}>
-        <div className="max-w-4xl mx-auto text-center">
-          <span className="text-indigo-400 font-bold tracking-widest text-sm uppercase mb-3 block">How it Works</span>
-          <h2 className="font-display text-4xl lg:text-5xl font-bold mb-16">
-            Automatic triggers. <br/>Zero paperwork.
-          </h2>
-
-          <div className="relative">
-            {/* Connecting Line */}
-            <div className="hidden md:block absolute top-[45px] left-[10%] right-[10%] h-1 bg-ink-border z-0"></div>
-            
-            <div className="grid md:grid-cols-4 gap-8 relative z-10">
-              {[
-                { step: '1', title: 'Rain Detected', desc: 'Our API detects heavy rain in your working zone.' },
-                { step: '2', title: 'AI Calculates', desc: 'We calculate your daily average income automatically.' },
-                { step: '3', title: 'Fraud Check', desc: 'System verifies active status against platform.' },
-                { step: '4', title: 'Instant Payout', desc: 'Money sent directly to your UPI ID within 30s.' },
-              ].map((s, i) => (
-                <div key={i} className="text-center">
-                  <div className="w-24 h-24 mx-auto bg-ink-deep border-4 border-ink-border rounded-full flex items-center justify-center mb-6 text-3xl font-display font-bold text-indigo-400 shadow-[0_0_30px_rgba(74,29,150,0.5)]">
-                    {s.step}
-                  </div>
-                  <h3 className="font-bold text-xl mb-2">{s.title}</h3>
-                  <p className="text-indigo-muted text-sm leading-relaxed">{s.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ── 3.5 Pricing Section ── */}
-      <motion.section id="pricing" className="py-24 bg-white px-6" {...revealProps}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="font-display text-4xl font-bold text-ink mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-lg text-ink-muted">One plan. Full protection. Auto-deducted from your earnings.</p>
-          </div>
-
-          <div className="max-w-md mx-auto relative">
-             <div className="absolute inset-0 bg-indigo-soft rounded-[2.5rem] rotate-2 -z-10 bg-gradient-to-br from-indigo-soft to-teal-soft/30"></div>
-             <div className="card !p-10 border-2 border-indigo relative bg-white">
-                <div className="absolute top-0 right-10 -translate-y-1/2 bg-indigo text-white px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">Most Popular</div>
-                
-                <div className="mb-8">
-                   <h3 className="text-2xl font-bold text-ink mb-2">GigShield Pro</h3>
-                    <div className="flex items-baseline gap-1.5">
-                       <span className="text-5xl font-display font-bold text-indigo tracking-tight">₹150</span>
-                       <span className="text-ink-muted font-bold text-lg">/week</span>
-                    </div>
-                </div>
-
-                <ul className="space-y-4 mb-10">
-                   {[
-                     'Unlimited Rain Payouts',
-                     'Heatwave Compensation',
-                     'Pollution Health Benefit',
-                     'Titanium Tier Eligibility',
-                     'Instant UPI Settle',
-                     'No Paperwork Claims'
-                   ].map((f, i) => (
-                     <li key={i} className="flex items-center gap-3 text-sm font-medium text-ink">
-                        <div className="w-5 h-5 rounded-full bg-teal-soft flex items-center justify-center text-teal text-[10px]">✓</div>
-                        {f}
-                     </li>
-                   ))}
-                </ul>
-
-                <Link to="/register" className="btn-primary w-full justify-center !py-4 shadow-float">Protect My Income</Link>
-                <p className="text-center text-[10px] text-ink-muted mt-4 font-bold uppercase tracking-wider">Cancel anytime • No hidden fees</p>
-             </div>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ── 4. Dashboard Preview ── */}
-      <motion.section className="py-24 bg-surface px-6 relative" {...revealProps}>
-        <div className="max-w-6xl mx-auto text-center mb-16">
-          <h2 className="font-display text-4xl font-bold text-ink mb-4">A dashboard made for you</h2>
-          <p className="text-lg text-ink-muted">Track payouts, coverage limits, and your Rider Score.</p>
-        </div>
-        
-        <div className="max-w-5xl mx-auto">
-          <div className="relative rounded-2xl overflow-hidden shadow-float border border-border bg-white p-2">
-            <div className="bg-surface-sunken rounded-xl h-[600px] flex items-center justify-center border border-border/50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] relative">
-                <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent z-10"></div>
-                {/* Mock UI Mockup within landing */}
-                <div className="relative z-20 w-full max-w-4xl bg-white/90 backdrop-blur-md shadow-2xl rounded-2xl border border-white overflow-hidden flex flex-col h-[520px] transform group-hover:-translate-y-3 transition-transform duration-700">
-                  <div className="h-14 border-b border-border/50 flex items-center justify-between px-6 bg-surface/80">
-                    <div className="flex gap-2">
-                       <div className="w-3 h-3 rounded-full bg-coral/40"></div>
-                       <div className="w-3 h-3 rounded-full bg-amber/40"></div>
-                       <div className="w-3 h-3 rounded-full bg-teal/40"></div>
-                    </div>
-                    <div className="px-3 py-1 bg-indigo/10 rounded-full text-[10px] font-bold text-indigo uppercase tracking-wider">Live View</div>
-                  </div>
+      {/* ── 3. Problem Section ── */}
+      <section id="problem" className="py-16 bg-white overflow-hidden">
+         <div className="container-custom">
+            <div className="grid lg:grid-cols-2 gap-20 items-center">
+                <motion.div 
+                  initial={{ opacity: 0.4, y: 15, filter: "blur(4px)" }}
+                  whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  viewport={{ once: false, amount: 0.1 }}
+                  transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative"
+                >
+                  <img src="/hero_india.png" alt="Weather struggle" className="w-full rounded-[40px] shadow-2xl relative z-10" />
+                  <div className="absolute -inset-4 bg-mint/5 -rotate-2 rounded-[40px] -z-0" />
+               </motion.div>
+               
+               <motion.div variants={reveal} initial="initial" whileInView="whileInView" viewport={{ once: false, amount: 0.1 }}>
+                  <h2 className="text-[44px] font-extrabold text-forest mb-6 leading-[1.1]">
+                    Food Delivery Riders Lose <span className="text-red-500">20–30% Income</span> to Weather.
+                  </h2>
+                  <p className="text-lg text-ink-muted leading-relaxed mb-10">
+                    When heavy rain or extreme heat strikes, you are forced to stop working. The platforms might offer surge pricing, but only *if* you ride in dangerous conditions. <br /><br />
+                    <span className="text-forest font-bold">If you stay safe, you lose your daily earnings target.</span>
+                  </p>
                   
-                  <div className="flex-1 p-8 bg-gradient-to-br from-white to-surface/40 relative overflow-hidden">
-                     {/* Stats Grid */}
-                     <div className="grid grid-cols-3 gap-6 mb-10">
-                        {[
-                          { label: 'Protected Income', val: `₹${(globalStats.payoutsSent / 100000).toFixed(1)}L`, color: 'text-indigo', bgColor: 'bg-indigo/40' },
-                          { label: 'Rider Rating', val: '9.8', color: 'text-teal', bgColor: 'bg-teal/40' },
-                          { label: 'Active Days', val: '28/30', color: 'text-ink', bgColor: 'bg-ink/40' }
-                        ].map((card, i) => (
-                          <div key={i} className="bg-white p-5 rounded-2xl border border-border/60 shadow-sm flex flex-col gap-1 hover:shadow-md transition-shadow">
-                             <span className="text-[10px] font-bold text-ink-muted uppercase tracking-widest">{card.label}</span>
-                             <span className={`text-2xl font-display font-bold ${card.color}`}>{card.val}</span>
-                             <div className="h-1.5 w-full bg-surface-sunken rounded-full mt-2 overflow-hidden">
-                                <motion.div 
-                                  initial={{ width: 0 }}
-                                  whileInView={{ width: '85%' }}
-                                  transition={{ duration: 1, delay: i * 0.2 }}
-                                  className={`h-full ${card.bgColor}`}
-                                />
+                  <div className="grid sm:grid-cols-2 gap-6">
+                     <div className="p-6 bg-[#f9fdfb] rounded-2xl border border-mint-border">
+                        <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-red-400 mb-4">
+                           <Droplet size={24} />
+                        </div>
+                        <h4 className="font-bold text-lg mb-2">Monsoons</h4>
+                        <p className="text-sm text-ink-muted">Average 14 days lost per year in Mumbai</p>
+                     </div>
+                     <div className="p-6 bg-[#f9fdfb] rounded-2xl border border-mint-border">
+                        <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-amber-500 mb-4">
+                           <Sun size={24} />
+                        </div>
+                        <h4 className="font-bold text-lg mb-2">Extreme Heat</h4>
+                        <p className="text-sm text-ink-muted">Afternoon earnings drop by 40% in Delhi summers</p>
+                     </div>
+                  </div>
+               </motion.div>
+            </div>
+         </div>
+      </section>
+
+      {/* ── 4. How it Works ── */}
+      <section id="how-it-works" className="py-16 bg-[#00332c] text-white">
+         <div className="container-custom">
+            <div className="text-center mb-24">
+               <span className="text-mint font-bold tracking-widest text-[10px] uppercase mb-4 block">How it Works</span>
+               <h2 className="text-5xl font-extrabold mb-4">Automatic triggers. <br /> Zero paperwork.</h2>
+            </div>
+
+            <motion.div 
+               variants={staggerContainer}
+               initial="initial"
+               whileInView="whileInView"
+               viewport={{ once: false, amount: 0.1 }}
+               className="grid md:grid-cols-4 gap-8"
+             >
+                {[
+                  { step: '1', title: 'Rain Detected', desc: 'Our API detects heavy rain in your working zone.', icon: CloudRain },
+                  { step: '2', title: 'AI Calculates', desc: 'We calculate your daily average income automatically.', icon: BarChart3 },
+                  { step: '3', title: 'Fraud Check', desc: 'System verifies active status against platform.', icon: UserCheck },
+                  { step: '4', title: 'Instant Payout', desc: 'Money sent directly to your UPI ID within 30s.', icon: Zap }
+                ].map((s, i) => (
+                   <motion.div 
+                     key={i} 
+                     variants={reveal}
+                     viewport={{ once: false, amount: 0.1 }}
+                     className="text-center group"
+                   >
+                      <div className="w-20 h-20 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-8 relative transition-all duration-500 group-hover:border-mint group-hover:scale-110 group-hover:shadow-[0_0_30px_rgba(40,255,191,0.1)]">
+                         <span className="text-4xl font-extrabold text-mint transition-transform duration-500 group-hover:scale-110">{s.step}</span>
+                         <div className="absolute inset-0 rounded-full border border-mint/0 group-hover:border-mint/30 transition-all duration-700 scale-125 opacity-0 group-hover:opacity-100" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-3 transition-colors duration-500 group-hover:text-mint">{s.title}</h3>
+                      <p className="text-white/40 text-sm leading-relaxed font-medium transition-opacity duration-500 group-hover:opacity-100">{s.desc}</p>
+                   </motion.div>
+                 ))}
+            </motion.div>
+         </div>
+      </section>
+
+      
+      {/* ── 5. Pricing Section ── */}
+      <section className="py-24 bg-white overflow-hidden relative" id="pricing">
+         <div className="container-custom">
+            <div className="text-center mb-20">
+               <motion.div variants={reveal} initial="initial" whileInView="whileInView" className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mint/10 text-forest text-[10px] font-black uppercase tracking-widest mb-4 border border-mint/20">
+                 Pricing
+               </motion.div>
+               <h2 className="text-[52px] font-black text-forest mb-4 tracking-tight">Simple, Transparent Pricing</h2>
+               <p className="text-xl text-ink-muted font-medium">One plan. Full protection. Auto-deducted from your earnings.</p>
+            </div>
+
+            <motion.div 
+               initial={{ opacity: 0, y: 40, scale: 0.95 }}
+               whileInView={{ opacity: 1, y: 0, scale: 1 }}
+               viewport={{ once: false, amount: 0.1 }}
+               transition={{ duration: 1, ease: premiumEase }}
+               className="max-w-xl mx-auto relative"
+            >
+               <div className="absolute -inset-10 bg-gradient-to-tr from-mint/20 via-transparent to-mint/10 rounded-[60px] blur-3xl -z-10" />
+               
+               <div className="bg-white rounded-[40px] border border-border shadow-[0_32px_64px_-16px_rgba(0,51,44,0.08)] overflow-hidden relative group transition-all duration-700 hover:shadow-[0_48px_120px_-24px_rgba(0,51,44,0.15)] hover:-translate-y-2">
+                  <div className="h-2 w-full bg-gradient-to-r from-mint via-forest to-mint" />
+                  
+                  <div className="p-10 lg:p-14">
+                    <div className="flex justify-between items-start mb-10">
+                      <div>
+                        <h3 className="text-[11px] font-black text-mint uppercase tracking-[0.3em] mb-3">Professional Plan</h3>
+                        <p className="text-4xl font-black text-forest">GigShield Pro</p>
+                      </div>
+                      <div className="bg-forest text-white px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-forest/20 animate-pulse">
+                        Most Popular
+                      </div>
+                    </div>
+
+                    <div className="flex items-baseline gap-2 mb-12">
+                       <span className="text-7xl font-black text-forest tracking-tighter flex items-baseline">
+                         <span className="text-3xl mr-1 self-center">₹</span>150
+                       </span>
+                       <span className="text-ink-muted font-bold text-xl">/ week</span>
+                    </div>
+
+                    <motion.div 
+                       variants={staggerContainer}
+                       initial="initial"
+                       whileInView="whileInView"
+                       className="grid sm:grid-cols-2 gap-y-5 gap-x-8 mb-12"
+                    >
+                       {[
+                         'Unlimited Rain Payouts',
+                         'Heatwave Compensation',
+                         'Pollution Health Benefit',
+                         'Titanium Tier Eligibility',
+                         'Instant UPI Settle',
+                         'No Paperwork Claims'
+                       ].map((f, i) => (
+                         <motion.div key={i} variants={reveal} className="flex items-center gap-3 group/item">
+                            <div className="w-6 h-6 rounded-full bg-mint/10 flex items-center justify-center text-mint group-hover/item:bg-mint group-hover/item:text-forest transition-all">
+                               <Check size={14} strokeWidth={3} />
+                            </div>
+                            <span className="text-[13px] font-bold text-forest transition-all group-hover/item:translate-x-1">{f}</span>
+                         </motion.div>
+                       ))}
+                    </motion.div>
+
+                    <div className="space-y-4">
+                       <Link to="/register" className="flex items-center justify-center w-full py-6 bg-forest text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:bg-forest/90 hover:scale-[1.01] active:scale-[0.99] shadow-xl shadow-forest/20 group">
+                          Protect My Income
+                          <div className="ml-2 w-6 h-6 rounded-full bg-mint/20 flex items-center justify-center group-hover:bg-mint transition-all">
+                            <Zap size={10} className="text-mint group-hover:text-forest" fill="currentColor" />
+                          </div>
+                       </Link>
+                       <p className="text-center text-[10px] text-ink-muted font-bold uppercase tracking-[0.2em]">
+                         Cancel anytime • No hidden fees
+                       </p>
+                    </div>
+
+                    <div className="mt-12 pt-10 border-t border-border/60">
+                       <p className="text-center text-[10px] font-black text-ink-muted/40 uppercase tracking-[0.2em] mb-6">Preferred by top riders from</p>
+                       <div className="flex justify-center items-center gap-10 opacity-30 grayscale hover:grayscale-0 transition-all cursor-default lg:gap-14">
+                          <span className="font-black italic text-xl tracking-tighter">SWIGGY</span>
+                          <span className="font-black italic text-xl tracking-tighter">ZOMATO</span>
+                       </div>
+                    </div>
+                  </div>
+               </div>
+            </motion.div>
+         </div>
+      </section>
+
+      {/* ── 6. Dashboard Preview ── */}
+      <section className="py-20 bg-[#f8fbf9]">
+         <div className="container-custom">
+            <div className="text-center mb-20">
+               <h2 className="text-[44px] font-extrabold text-forest mb-4">A dashboard made for you</h2>
+               <p className="text-lg text-ink-muted">Track payouts, coverage limits, and your Rider Score.</p>
+            </div>
+
+            <motion.div 
+               variants={reveal}
+               initial="initial"
+               whileInView="whileInView"
+               className="max-w-5xl mx-auto rounded-[40px] overflow-hidden shadow-[0_32px_80px_rgba(0,51,44,0.1)] border border-white p-3 bg-gradient-to-b from-white to-[#f4fffb]"
+            >
+               <div className="bg-[#00332c] rounded-[32px] overflow-hidden h-[580px] relative flex shadow-inner">
+                  
+                  {/* Mock Sidebar */}
+                  <div className="w-20 border-r border-white/5 flex flex-col items-center py-8 gap-10">
+                    <div className="w-10 h-10 rounded-xl bg-mint/20 flex items-center justify-center text-mint">
+                      <Shield size={20} />
+                    </div>
+                    <div className="flex flex-col gap-8 opacity-40">
+                      <BarChart3 size={20} className="text-white" />
+                      <Clock size={20} className="text-white" />
+                      <Globe size={20} className="text-white" />
+                      <UserCheck size={20} className="text-white" />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 flex flex-col">
+                    {/* Mock Window Header */}
+                    <div className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-10">
+                       <div className="flex gap-8">
+                          <div className="text-[11px] font-bold text-mint uppercase tracking-widest border-b-2 border-mint-green pb-5 mt-5">Earnings Overview</div>
+                          <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest pb-5 mt-5 cursor-pointer hover:text-white/60">Payout History</div>
+                       </div>
+                       <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white text-xs font-bold">R</div>
+                         <div className="flex flex-col">
+                           <span className="text-[10px] font-bold text-white">Rahul S.</span>
+                           <span className="text-[8px] text-white/40">Swiggy • Mumbai</span>
+                         </div>
+                       </div>
+                    </div>
+
+                    {/* 📱 Mock Dashboard Interface - Showcasing the internal rider experience */}
+                    <div className="flex-1 p-10 grid grid-cols-12 gap-8 overflow-hidden">
+                       <div className="col-span-8 space-y-8 flex flex-col">
+                          {/* Live statistics for the currently viewing rider (hypothetical default) */}
+                          <div className="grid grid-cols-3 gap-5">
+                             {[
+                               { label: 'Protected Income', val: `₹${(globalStats.payoutsSent / 100000).toFixed(1)}L`, color: 'text-mint' },
+                               { label: 'Rider Rating', val: '9.8', color: 'text-white' },
+                               { label: 'Avg. Payout', val: '₹420', color: 'text-white' }
+                             ].map((s, i) => (
+                               <div key={i} className="p-5 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                                  <p className="text-[9px] uppercase font-bold text-white/30 tracking-widest mb-2">{s.label}</p>
+                                  <p className={`text-2xl font-black ${s.color}`}>{s.val}</p>
+                               </div>
+                             ))}
+                          </div>
+
+                          {/* Visualizing "Earnings vs Weather" performance over the last few months */}
+                          <div className="flex-1 bg-white/5 rounded-3xl border border-white/10 p-8 flex flex-col relative overflow-hidden">
+                             <div className="flex items-center justify-between mb-8">
+                                <div className="space-y-1">
+                                  <p className="text-xs font-bold text-white">Daily Performance</p>
+                                  <p className="text-[10px] text-white/40 uppercase tracking-tighter">Income protection active across all shifts</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <div className="px-3 py-1 rounded-full bg-mint/10 text-mint text-[9px] font-bold">Weekly</div>
+                                </div>
+                             </div>
+                             
+                             <div className="flex-1 flex items-end gap-3 pb-2 pt-4 relative">
+                                {/* Grid lines */}
+                                <div className="absolute inset-0 flex flex-col justify-between opacity-5">
+                                  <div className="w-full h-px bg-white" />
+                                  <div className="w-full h-px bg-white" />
+                                  <div className="w-full h-px bg-white" />
+                                </div>
+                                
+                                // Staggered chart bars showing hypothetical data points
+                                {[45, 65, 40, 85, 55, 95, 75, 50, 60, 90, 80, 70].map((h, i) => (
+                                   <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
+                                      <motion.div 
+                                         initial={{ height: 0 }} 
+                                         whileInView={{ height: `${h}%` }}
+                                         className="w-full bg-gradient-to-t from-mint-green/5 to-mint-green/40 rounded-t-lg group-hover:to-mint-green/60 transition-all" 
+                                      />
+                                      <span className="text-[8px] text-white/20 font-bold">{i + 1}M</span>
+                                   </div>
+                                ))}
                              </div>
                           </div>
-                        ))}
-                     </div>
+                       </div>
 
-                     {/* Content Simulation */}
-                     <div className="grid grid-cols-5 gap-6 h-full">
-                        <div className="col-span-3 space-y-6">
-                           <div className="p-6 bg-white rounded-2xl border border-border/60 shadow-sm">
-                              <div className="flex justify-between items-center mb-6">
-                                 <div className="h-5 w-32 bg-indigo/10 rounded-lg"></div>
-                                 <div className="h-5 w-20 bg-surface rounded-lg"></div>
-                              </div>
-                              <div className="flex items-end gap-3 h-32 px-2">
-                                 {[60, 40, 80, 50, 95, 70, 85, 45, 65, 80].map((h, i) => (
-                                   <motion.div 
-                                     key={i}
-                                     initial={{ height: 0 }}
-                                     whileInView={{ height: `${h}%` }}
-                                     transition={{ duration: 0.8, delay: i * 0.05 }}
-                                     className="flex-1 bg-gradient-to-t from-indigo-soft/60 to-indigo/40 rounded-t-lg"
-                                   />
-                                 ))}
-                              </div>
-                           </div>
-                        </div>
+                       {/* 📈 Live Status & Activity Feed */}
+                       <div className="col-span-4 space-y-6">
+                          <div className="p-6 rounded-3xl bg-mint text-forest relative overflow-hidden shadow-lg shadow-mint-green/10">
+                             <p className="text-[9px] uppercase font-bold opacity-60 tracking-widest mb-1">Current Status</p>
+                             <div className="flex items-center gap-2 mb-4">
+                               <div className="w-2 h-2 rounded-full bg-forest animate-pulse" />
+                               <p className="text-2xl font-black">Titanium 💎</p>
+                             </div>
+                             <p className="text-[10px] font-bold opacity-60 leading-relaxed">You are in the top 2% of riders. <br /> Enjoy 25% faster payout processing.</p>
+                             <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full border-[1.2rem] border-forest-green/5" />
+                          </div>
 
-                        <div className="col-span-2 space-y-4">
-                           <div className="p-5 bg-indigo text-white rounded-2xl shadow-lg relative overflow-hidden group">
-                              <div className="relative z-10">
-                                 <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Your Rider Tier</p>
-                                 <p className="text-2xl font-display font-bold">Titanium 💎</p>
-                                 <p className="text-xs mt-4 opacity-70">Payout bonus: +25% active</p>
-                              </div>
-                              <Shield className="absolute -bottom-4 -right-4 w-24 h-24 opacity-10 group-hover:scale-110 transition-transform" />
-                           </div>
-                           <div className="p-5 bg-white rounded-2xl border border-border/60 shadow-sm">
-                              <div className="flex items-center gap-3 mb-4">
-                                 <div className="w-2 h-2 rounded-full bg-teal animate-pulse"></div>
-                                 <span className="text-xs font-bold text-ink underline decoration-teal/30">Next Coverage Sync</span>
-                              </div>
-                              <div className="space-y-3">
-                                 <div className="h-2 w-full bg-surface rounded-full"></div>
-                                 <div className="h-2 w-2/3 bg-surface rounded-full"></div>
-                              </div>
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-
-                  {/* Glassy reflection */}
-                  <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-white/20 to-transparent -skew-x-12 translate-x-1/2 pointer-events-none"></div>
-                </div>
-            </div>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* ── 4.5 Testimonials ── */}
-      <motion.section className="py-24 bg-ink text-white px-6 overflow-hidden relative" {...revealProps}>
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-full bg-indigo/10 blur-[120px] rounded-full"></div>
-         
-         <div className="max-w-6xl mx-auto relative z-10">
-           <div className="text-center mb-16">
-             <h2 className="font-display text-4xl font-bold mb-4 italic">Voice of the Riders</h2>
-             <p className="text-lg text-indigo-200">Thousands of riders now work with peace of mind.</p>
-           </div>
-
-           <div className="grid md:grid-cols-3 gap-8">
-              {[
-                { name: 'Rahul Sharma', city: 'Mumbai', platform: 'Swiggy', text: 'I lost 3 days last monsoon due to heavy rain. With GigShield, I got ₹1200 instantly. It is literally life-saving for us.' },
-                { name: 'Mohit Kumar', city: 'Delhi', platform: 'Zomato', text: 'The heat in Delhi is unbearable. I stopped riding at 12 PM, and GigShield covered my lost afternoon earnings. Amazing.' },
-                { name: 'Sankar S.', city: 'Chennai', platform: 'Zepto', text: 'No paperwork is the best part. I didn\'t even have to open the app. The money just arrived in my bank.' }
-              ].map((t, i) => (
-                <div key={i} className="bg-white/5 backdrop-blur-sm border border-white/10 p-8 rounded-2xl flex flex-col justify-between hover:bg-white/10 transition-colors">
-                   <p className="text-indigo-soft italic leading-relaxed mb-8">"{t.text}"</p>
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo to-teal flex items-center justify-center font-bold text-xl">{t.name[0]}</div>
-                      <div>
-                         <p className="font-bold">{t.name}</p>
-                         <p className="text-xs text-indigo-muted font-semibold">{t.platform} • {t.city}</p>
-                      </div>
-                   </div>
-                </div>
-              ))}
-           </div>
-         </div>
-      </motion.section>
-
-      {/* ── 5. Cities Risk Map ── */}
-      <motion.section id="cities" className="py-24 bg-white px-6 border-t border-border" {...revealProps}>
-        <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="font-display text-4xl font-bold text-ink mb-6">Live City Triggers</h2>
-              <p className="text-lg text-ink-muted mb-8">We monitor real-time weather and pollution APIs across 6 major Indian cities to automatically trigger your payouts.</p>
-              <div className="grid grid-cols-2 gap-3 relative">
-                {loading && (
-                  <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-xl">
-                    <div className="w-6 h-6 border-2 border-indigo border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-                {citiesData.slice(0, 4).map(city => (
-                  <div key={city.city} 
-                       className="card p-4 cursor-pointer"
-                       onMouseEnter={() => setActiveCity(city.city)}
-                       onMouseLeave={() => setActiveCity(null)}
-                  >
-                    <p className="font-bold text-ink">{city.city}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className={`w-2 h-2 rounded-full ${city.risk === 'HIGH' ? 'bg-coral' : city.risk === 'MODERATE' ? 'bg-amber' : 'bg-teal'}`}></div>
-                      <span className="text-xs font-semibold text-ink-muted">{city.status}</span>
+                          <div className="p-6 rounded-3xl bg-white/5 border border-white/10 flex flex-col">
+                             <p className="text-[10px] font-bold text-white tracking-widest uppercase mb-6 flex items-center gap-2">
+                               <span className="w-1.5 h-1.5 rounded-full bg-mint" />
+                               Recent Activity
+                             </p>
+                             <div className="space-y-5">
+                                {[
+                                  { t: 'Rain Coverage Payout', d: '2 mins ago', val: '+ ₹340', p: 'Swiggy' },
+                                  { t: 'Policy Renewal', d: 'Today, 8:00 AM', val: 'Active', p: 'Zomato' },
+                                  { t: 'Heatwave Buffer', d: 'Yesterday', val: '+ ₹180', p: 'Swiggy' }
+                                ].map((act, i) => (
+                                  <div key={i} className="flex items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                                    <div className="space-y-1">
+                                      <p className="text-[11px] font-bold text-white">{act.t}</p>
+                                      <p className="text-[9px] text-white/40 uppercase tracking-tighter">{act.d} • {act.p}</p>
+                                    </div>
+                                    <div className="text-[11px] font-black text-mint">{act.val}</div>
+                                  </div>
+                                ))}
+                             </div>
+                          </div>
+                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-              <div 
-                onClick={() => document.getElementById('cities')?.scrollIntoView({ behavior: 'smooth' })}
-                className="mt-6 text-sm font-semibold text-indigo cursor-pointer flex items-center gap-1 hover:text-indigo-600 hover:bg-indigo-soft/50 px-3 py-1.5 rounded-lg w-fit transition-colors"
-              >
-                View all supported cities <ChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-            
-            <div className="lg:pl-12">
-               <MapView citiesData={citiesData} activeCity={activeCity} onCityClick={(c) => setActiveCity(c.city)} />
-            </div>
-          </div>
-        </div>
-      </motion.section>
+               </div>
+            </motion.div>
+         </div>
+      </section>
 
-      {/* ── 5.5 FAQ Section ── */}
-      <motion.section id="faq" className="py-24 bg-surface px-6" {...revealProps}>
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="font-display text-4xl font-bold text-ink mb-4">Questions? We got you.</h2>
-          </div>
+      {/* ── 7. Testimonials ── */}
+      <section className="py-20 bg-white overflow-hidden">
+         <div className="container-custom">
+            <div className="text-center mb-24">
+               <h2 className="text-[44px] font-extrabold text-forest mb-4 italic">Voice of the Riders</h2>
+               <p className="text-lg text-ink-muted">Thousands of riders now work with peace of mind.</p>
+            </div>
 
-          <div className="space-y-4">
-             {[
-               { q: 'Is there any paperwork to file a claim?', a: 'No. Our system uses real-time weather APIs. If it rains above 5mm/hr in your GPS zone for 2+ hours, the payout is triggered automatically.' },
-               { q: 'When do I get the money?', a: 'Payouts are processed within 30 seconds of the event ending. You receive it via UPI instantly.' },
-               { q: 'Is heat covered as well?', a: 'Yes! If the temperature exceeds 42°C in your city, we trigger heatwave protection payouts representing your lost afternoon income.' },
-               { q: 'How is the premium paid?', a: 'We deduct a small percentage (2.5% avg) from each delivery you complete. If you don\'t work, you don\'t pay.' }
-             ].map((item, i) => (
-               <details key={i} className="group bg-white rounded-2xl border border-border overflow-hidden">
-                  <summary className="flex items-center justify-between p-6 cursor-pointer list-none font-bold text-ink hover:text-indigo transition-colors">
-                     {item.q}
-                     <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180" />
-                  </summary>
-                  <div className="px-6 pb-6 text-ink-muted leading-relaxed">
-                     {item.a}
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+               {[
+                 { name: 'Rahul Sharma', city: 'Mumbai', platform: 'Swiggy', text: 'I lost 3 days last monsoon due to heavy rain. With GigShield, I got ₹1200 instantly. It is literally life-saving for us.' },
+                 { name: 'Mohit Kumar', city: 'Delhi', platform: 'Zomato', text: 'The heat in Delhi is unbearable. I stopped riding at 12 PM, and GigShield covered my lost afternoon earnings. Amazing.' }
+               ].map((t, i) => (
+                 <div key={i} className="card-gigshield !p-10 flex flex-col justify-between hover:bg-[#f9fdfb]">
+                    <p className="text-forest italic leading-relaxed mb-10 opacity-70">"{t.text}"</p>
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-xl bg-forest text-white flex items-center justify-center font-bold text-xl">{t.name[0]}</div>
+                       <div>
+                          <p className="font-bold text-forest">{t.name}</p>
+                          <p className="text-xs text-ink-muted font-semibold">{t.platform} • {t.city}</p>
+                       </div>
+                    </div>
+                 </div>
+               ))}
+            </div>
+         </div>
+      </section>
+
+      {/* ── 8. Live City Triggers ── */}
+      <section id="cities" className="py-20 bg-[#f4fffb]">
+         <div className="container-custom">
+            <div className="grid lg:grid-cols-2 gap-20 items-center">
+               <div className="lg:pl-12 order-2 lg:order-1">
+                  <MapView citiesData={citiesData} activeCity={activeCity} onCityClick={(c) => setActiveCity(c.city)} />
+               </div>
+               <div className="order-1 lg:order-2">
+                  <h2 className="text-4xl lg:text-5xl font-extrabold text-forest mb-8 leading-[1.1]">Live City Triggers</h2>
+                  <p className="text-ink-muted text-lg mb-12">We monitor real-time weather and pollution APIs across 6 major Indian cities to automatically trigger your payouts.</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     {citiesData.slice(0, showAllCities ? undefined : 4).map(city => (
+                       <div key={city.city} 
+                            className="bg-white p-5 rounded-2xl border border-mint-border flex items-center justify-between cursor-pointer hover:border-mint-green transition-all shadow-sm"
+                            onMouseEnter={() => setActiveCity(city.city)}
+                            onMouseLeave={() => setActiveCity(null)}
+                       >
+                          <div>
+                             <p className="font-bold text-forest">{city.city}</p>
+                             <p className="text-[10px] uppercase font-bold text-ink-muted tracking-widest mt-1">{city.status}</p>
+                          </div>
+                          <div className={`w-2.5 h-2.5 rounded-full ${city.risk === 'HIGH' ? 'bg-red-400 animate-pulse' : city.risk === 'MODERATE' ? 'bg-amber-400' : 'bg-mint'}`} />
+                       </div>
+                     ))}
                   </div>
-               </details>
-             ))}
-          </div>
-        </div>
-      </motion.section>
 
-      {/* ── Footer ── */}
-      <footer className="bg-ink py-16 px-6 border-t border-ink-border">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-ink-deep flex items-center justify-center">
-              <Shield className="w-4 h-4 text-indigo-muted" />
+                  <div className="mt-12">
+                     <button 
+                        onClick={() => setShowAllCities(!showAllCities)}
+                        className="flex items-center gap-2 text-forest font-bold text-sm tracking-widest uppercase hover:text-mint transition-all"
+                     >
+                        {showAllCities ? 'Show fewer cities' : 'View all supported cities'} <ChevronDown size={14} className={showAllCities ? 'rotate-180' : ''} />
+                     </button>
+                  </div>
+               </div>
             </div>
-            <span className="font-display font-bold text-white text-xl">GigShield</span>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            <a href="#problem" className="text-sm text-indigo-muted hover:text-white transition-colors">About</a>
-            <a href="#how-it-works" className="text-sm text-indigo-muted hover:text-white transition-colors">How it works</a>
-            <a href="https://github.com/KRUSHAL2956/GigShield" target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-muted hover:text-white transition-colors">GitHub</a>
-            <a href="#cities" className="text-sm text-indigo-muted hover:text-white transition-colors">Cities</a>
-          </div>
-        </div>
-        <div className="max-w-6xl mx-auto mt-8 pt-8 border-t border-ink-border text-center text-xs text-ink-muted">
-          &copy; 2026 GigShield. DEVTrails Project.
-        </div>
+         </div>
+      </section>
+
+      
+      {/* ── 9. FAQ Section ── */}
+      <section className="py-24 bg-white" id="faq">
+         <div className="container-custom max-w-4xl">
+            <div className="text-center mb-16">
+               <motion.div variants={reveal} initial="initial" whileInView="whileInView" className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-mint/10 text-forest text-[10px] font-bold tracking-[0.1em] uppercase mb-4 border border-mint/20">
+                  Common Questions
+               </motion.div>
+               <h2 className="text-[52px] font-black text-forest mb-4 tracking-tight">Questions? We got you.</h2>
+               <p className="text-xl text-ink-muted font-medium">Everything you need to know about GigShield protection.</p>
+            </div>
+ 
+            <motion.div 
+               variants={staggerContainer}
+               initial="initial"
+               whileInView="whileInView"
+               viewport={{ once: false, amount: 0.1 }}
+               className="max-w-3xl mx-auto space-y-4"
+             >
+                {[
+                  { q: 'Which platforms do you support?', a: 'GigShield works seamlessly with Swiggy and Zomato.' },
+                  { q: 'Is there any paperwork to file a claim?', a: 'No. Our system uses real-time weather APIs. If it rains above 5mm/hr in your GPS zone for 2+ hours, the payout is triggered automatically.' },
+                  { q: 'When do I get the money?', a: 'Payouts are processed within 30 seconds of the event ending. You receive it via UPI instantly.' },
+                  { q: 'Is heat covered as well?', a: 'Yes! If the temperature exceeds 42°C in your city, we trigger heatwave protection payouts representing your lost afternoon income.' },
+                  { q: 'How is the premium paid?', a: 'The weekly premium is auto-deducted from your linked account or wallet. If you stop working, you can pause anytime.' }
+                ].map((item, i) => (
+                  <motion.details 
+                    key={i} 
+                    variants={reveal}
+                    viewport={{ once: false, amount: 0.1 }}
+                    className="group bg-[#f9fdfb] rounded-2xl border border-mint-border overflow-hidden hover:border-mint transition-all"
+                  >
+                     <summary className="flex items-center justify-between p-7 cursor-pointer list-none font-bold text-forest hover:text-mint transition-colors">
+                        {item.q}
+                        <div className="w-8 h-8 rounded-full bg-mint/10 flex items-center justify-center text-mint group-open:rotate-180 transition-transform">
+                           <ChevronDown size={14} />
+                        </div>
+                     </summary>
+                     <div className="px-7 pb-7 text-ink-muted leading-relaxed text-sm font-medium">
+                        {item.a}
+                     </div>
+                  </motion.details>
+                ))}
+            </motion.div>
+         </div>
+      </section>
+
+      {/* ── 11. Footer ── */}
+      <footer className="bg-[#002621] text-white pt-24 pb-12">
+         <div className="container-custom">
+             <motion.div 
+               variants={staggerContainer}
+               initial="initial"
+               whileInView="whileInView"
+               className="grid lg:grid-cols-4 gap-16 pb-20 border-b border-white/5"
+             >
+                <motion.div variants={reveal} className="lg:col-span-1">
+                   <motion.img 
+                     src="/logo.png" 
+                     alt="GigShield Logo" 
+                     className="h-10 mb-8 opacity-100 cursor-pointer relative z-10" 
+                     whileHover={{ scale: 1.02, filter: "brightness(0) invert(1) drop-shadow(0 0 8px rgba(255,255,255,0.3))" }}
+                     initial={{ filter: "brightness(0) invert(1) blur(4px)", opacity: 0.3 }}
+                     whileInView={{ filter: "brightness(0) invert(1) blur(0px)", opacity: 1 }}
+                     viewport={{ once: false, amount: 0.1 }}
+                     transition={{ duration: 0.8, ease: premiumEase }}
+                   />
+                   <p className="text-white/40 text-[13px] leading-relaxed mb-8 max-w-xs font-medium">
+                      "Building the world's first AI-driven safety net for the gig economy. Starting with India's food delivery heroes."
+                   </p>
+                </motion.div>
+                
+                <motion.div variants={reveal} className="lg:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-10">
+                   <div>
+                      <h4 className="text-[12px] font-black uppercase tracking-[0.2em] mb-8 text-mint">Platform</h4>
+                      <ul className="space-y-4 text-white/50 text-[13px] font-bold">
+                         <li className="cursor-pointer hover:text-white transition-colors"><Link to="/dashboard">Rider Dashboard</Link></li>
+                         <li className="cursor-pointer hover:text-white transition-colors"><Link to="/claims">Instant Claims</Link></li>
+                         <li className="cursor-pointer hover:text-white transition-colors"><Link to="/score">Rider Score</Link></li>
+                         <li className="cursor-pointer hover:text-white transition-colors"><Link to="/policy">My Policy</Link></li>
+                      </ul>
+                   </div>
+                   <div>
+                      <h4 className="text-[12px] font-black uppercase tracking-[0.2em] mb-8 text-white/30">Resources</h4>
+                      <ul className="space-y-4 text-white/50 text-[13px] font-bold">
+                         <li className="cursor-pointer hover:text-white transition-colors"><a href="#how-it-works">How it works</a></li>
+                         <li className="cursor-pointer hover:text-white transition-colors"><a href="#cities">Supported Cities</a></li>
+                         <li className="cursor-pointer hover:text-white transition-colors"><Link to="/faq">Help Center</Link></li>
+                      </ul>
+                   </div>
+                   <div className="col-span-2 md:col-span-1">
+                      <h4 className="text-[12px] font-black uppercase tracking-[0.2em] mb-8 text-white/30">Legal</h4>
+                      <ul className="space-y-4 text-white/50 text-[13px] font-bold">
+                         <li className="cursor-pointer hover:text-white transition-colors">
+                            <a href="https://github.com/KRUSHAL2956/GigShield" target="_blank" rel="noopener noreferrer">GitHub</a>
+                         </li>
+                         <li className="cursor-pointer hover:text-white transition-colors"><Link to="/privacy">Privacy Policy</Link></li>
+                         <li className="cursor-pointer hover:text-white transition-colors"><Link to="/terms">Terms of Service</Link></li>
+                      </ul>
+                   </div>
+                </motion.div>
+
+                <motion.div variants={reveal} className="lg:col-span-1">
+                   <h4 className="text-[12px] font-black uppercase tracking-[0.2em] mb-8 text-mint">Get in Touch</h4>
+                   <div className="space-y-6">
+                      <p className="text-white/50 text-[13px] font-bold flex items-center gap-3">
+                         <span className="w-1.5 h-1.5 rounded-full bg-mint" />
+                         HQ: India
+                      </p>
+                      <div className="pt-2">
+                         <Link to="/register" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-mint text-forest text-[11px] font-black uppercase tracking-widest shadow-lg shadow-mint/10 hover:scale-105 transition-all">
+                            Protect My Ride
+                         </Link>
+                      </div>
+                   </div>
+                </motion.div>
+             </motion.div>
+
+            <div className="pt-12 text-center text-white/10 text-[10px] font-bold tracking-widest uppercase">
+               © 2026 GigShield. Built for DEVTrails.
+            </div>
+         </div>
       </footer>
     </div>
   );

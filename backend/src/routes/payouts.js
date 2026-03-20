@@ -6,6 +6,8 @@ const { authMiddleware } = require('../middleware/auth');
 const { getCurrentWeather } = require('../services/weatherService');
 const { getAirQuality } = require('../services/aqiService');
 const { initiatePayout } = require('../services/paymentService');
+const mlClient = require('../services/mlClient');
+const Ping = require('../models/ping');
 
 const router = express.Router();
 const MONITOR_CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Hyderabad', 'Pune'];
@@ -58,6 +60,48 @@ function calculatePayout(weeklyEarnings, durationHours = null) {
   return Math.max(baseAmount, MIN_PAYOUT);
 }
 
+// Helper: Payout status update with retry
+async function updatePayoutStatusWithRetry(id, status, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await pool.query('UPDATE payouts SET status = $1 WHERE id = $2', [status, id]);
+      return;
+    } catch (err) {
+      console.error(`Attempt ${i+1} failed to update payout ${id} to ${status}:`, err);
+      if (i === maxRetries - 1) throw err;
+      await new Promise(r => setTimeout(r, Math.pow(2, i) * 500));
+    }
+  }
+}
+
+// Helper: Process payouts with concurrency control
+async function processPayoutsConcurrently(payoutBatch, concurrency = 10) {
+  const results = [];
+  for (let i = 0; i < payoutBatch.length; i += concurrency) {
+    const chunk = payoutBatch.slice(i, i + concurrency);
+    const chunkResults = await Promise.all(chunk.map(async (p) => {
+      const dbId = p.dbId || p.payoutId;
+      let payResult = { success: false };
+      
+      try {
+        payResult = await initiatePayout(p.rider, p.final_payout || p.amount);
+      } catch (payErr) {
+        console.error(`[Payouts] Payment initiation failed for ${dbId}:`, payErr);
+      }
+      
+      try {
+        await updatePayoutStatusWithRetry(dbId, payResult.success ? 'processed' : 'failed');
+      } catch (updateErr) {
+        console.error(`CRITICAL: Status update failed for ${dbId}:`, updateErr);
+      }
+      
+      return { success: payResult.success, dbId };
+    }));
+    results.push(...chunkResults);
+  }
+  return results;
+}
+
 // POST /api/payouts/trigger
 // Triggers payouts for all active riders in an affected city
 router.post('/trigger', authMiddleware, async (req, res) => {
@@ -69,7 +113,7 @@ router.post('/trigger', authMiddleware, async (req, res) => {
     const data = triggerSchema.parse(req.body);
 
     const client = await pool.connect();
-    let eventId, avgDurationHours, payoutsPreview = [], ridersProcessed = 0;
+    let eventId, avgDurationHours, payoutsPreview = [], ridersProcessed = 0, ridersFailed = 0;
 
     try {
       await client.query('BEGIN');
@@ -138,25 +182,9 @@ router.post('/trigger', authMiddleware, async (req, res) => {
 
       await client.query('COMMIT');
 
-      // 4. Initiate External Payments (Post-Commit)
-      let successCount = 0;
-      let failureCount = 0;
-
-      for (const p of payouts) {
-        try {
-          const payResult = await initiatePayout(p.rider, p.final_payout);
-          await pool.query(
-            'UPDATE payouts SET status = $1 WHERE id = $2',
-            [payResult.success ? 'processed' : 'failed', p.dbId]
-          );
-          if (payResult.success) successCount++;
-          else failureCount++;
-        } catch (payErr) {
-          console.error(`[ManualTrigger] Payment failure for ${p.dbId}:`, payErr);
-          await pool.query('UPDATE payouts SET status = $1 WHERE id = $2', ['failed', p.dbId]);
-          failureCount++;
-        }
-      }
+      const results = await processPayoutsConcurrently(payouts);
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.length - successCount;
 
       ridersProcessed = successCount;
       ridersFailed = failureCount;
@@ -230,6 +258,47 @@ router.post('/auto-check', authMiddleware, async (req, res) => {
 
               if (recentPayout.rows.length > 0) continue;
 
+              // --- FRAUD DETECTION LAYER ---
+              const latestPing = await Ping.getLatestForRider(rider.id);
+              if (latestPing) {
+                // Security Fix: Validate coordinates are finite numbers before processing
+                const lat = parseFloat(latestPing.lat);
+                const lng = parseFloat(latestPing.lng);
+                
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                  console.warn(`[Payouts] Invalid coordinates for rider ${rider.id}, skipping fraud check.`);
+                } else {
+                  try {
+                    const fraudCheck = await mlClient.checkFraud({
+                      rider_id: rider.id,
+                      current_ping: {
+                        lat: lat,
+                        lng: lng,
+                        timestamp: latestPing.timestamp,
+                        accuracy: latestPing.accuracy
+                      }
+                    });
+
+                    if (fraudCheck.is_suspicious && fraudCheck.risk_score > 0.8) {
+                      console.warn(`[FRAUD ALERT] Flagging payout for rider ${rider.id} due to high risk score: ${fraudCheck.risk_score}`);
+                      
+                      // Persistent Auditing: Record the fraud flag in the database
+                      await client.query(
+                        `INSERT INTO fraud_flags (rider_id, city, risk_score, reason, metadata)
+                         VALUES ($1, $2, $3, $4, $5)`,
+                        [rider.id, city, fraudCheck.risk_score, 'High velocity / Suspected spoofing', JSON.stringify(fraudCheck)]
+                      );
+
+                      triggerSummary.push({ city, rider_id: rider.id, status: 'FLAGGED', reason: 'High fraud risk' });
+                      continue;
+                    }
+                  } catch (mlErr) {
+                    console.warn('Fraud check failed, proceeding with caution:', mlErr.message);
+                  }
+                }
+              }
+              // -----------------------------
+
               // 1. Calculate payout
               const baseAmount = calculatePayout(rider.avg_weekly_earnings);
               const amount = baseAmount;
@@ -256,26 +325,9 @@ router.post('/auto-check', authMiddleware, async (req, res) => {
 
             await client.query('COMMIT');
 
-            // 3. Initiate External Payments (Outside Transaction)
-            let successCount = 0;
-            let failureCount = 0;
-
-            for (const p of successfulPayouts) {
-              try {
-                const payResult = await initiatePayout(p.rider, p.amount);
-                await pool.query(
-                  'UPDATE payouts SET status = $1 WHERE id = $2',
-                  [payResult.success ? 'processed' : 'failed', p.payoutId]
-                );
-                
-                if (payResult.success) successCount++;
-                else failureCount++;
-              } catch (payErr) {
-                console.error(`[Payouts] Payment loop failure for ${p.payoutId}:`, payErr);
-                await pool.query('UPDATE payouts SET status = $1 WHERE id = $2', ['failed', p.payoutId]);
-                failureCount++;
-              }
-            }
+            const results = await processPayoutsConcurrently(successfulPayouts);
+            const successCount = results.filter(r => r.success).length;
+            const failureCount = results.length - successCount;
 
             triggerSummary.push({ 
               city, 

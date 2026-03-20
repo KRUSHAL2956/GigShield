@@ -15,9 +15,15 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const { rider, logout } = useAuthStore();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/register');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+      // Even if the API call fails, we should clear local state and redirect
+      navigate('/login');
+    }
   };
 
   return (
@@ -36,10 +42,10 @@ export default function Sidebar() {
             key={item.to}
             to={item.to}
             className={({ isActive }) => 
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-black transition-all ${
                 isActive 
-                  ? 'bg-indigo text-white shadow-soft' 
-                  : 'text-ink-muted hover:bg-surface-sunken hover:text-ink'
+                  ? 'bg-forest text-mint shadow-lg shadow-mint/5' 
+                  : 'text-ink-muted hover:bg-mint/5 hover:text-forest'
               }`
             }
           >
@@ -56,7 +62,7 @@ export default function Sidebar() {
       {/* User Info & Logout */}
       <div className="pt-5 border-t border-border mt-auto">
         <div className="flex items-center gap-3 px-2 mb-4">
-          <div className="w-9 h-9 rounded-full bg-indigo-soft flex items-center justify-center text-indigo font-bold text-sm">
+          <div className="w-9 h-9 rounded-full bg-mint/10 flex items-center justify-center text-forest font-black text-sm border border-mint/20">
             {rider?.name?.charAt(0) || 'R'}
           </div>
           <div className="flex-1 min-w-0">

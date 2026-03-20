@@ -1,179 +1,170 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Shield } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
-import { auth, RecaptchaVerifier } from '../../utils/firebase';
-import { signInWithPhoneNumber } from 'firebase/auth';
+import { authenticateWithFirebase } from '../../services/dbServices';
 
 function Verify() {
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const [countdown, setCountdown] = useState(30);
-  const refs = useRef([]);
-  const isMounted = useRef(true);
+  const [timer, setTimer] = useState(30);
+
+  const phone = window.phoneForVerify || 'your phone';
 
   useEffect(() => {
-    isMounted.current = true;
-    return () => { isMounted.current = false; };
-  }, []);
-
-  useEffect(() => {
-    refs.current[0]?.focus();
     if (!window.confirmationResult) {
-      toast.error('Session expired. Please login again.');
+      toast.error('Session expired');
       navigate('/login');
     }
   }, [navigate]);
 
   useEffect(() => {
-    if (countdown > 0) {
-      const t = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [countdown]);
+    let interval;
+    if (timer > 0) interval = setInterval(() => setTimer((t) => t - 1), 1000);
+    return () => clearInterval(interval);
+  }, [timer]);
 
-  const handleChange = (i, val) => {
-    if (!/^\d*$/.test(val)) return;
-    const next = [...otp];
-    next[i] = val.slice(-1);
-    setOtp(next);
-    if (val && i < 5) refs.current[i + 1]?.focus();
-  };
-
-  const handleKey = (i, e) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) refs.current[i - 1]?.focus();
-  };
-
-  const handleVerify = async () => {
-    const code = otp.join('');
-    if (code.length !== 6) return toast.error('Enter 6-digit code');
-    
-    if (!window.confirmationResult) {
-      toast.error('Verification session not found. Please restart login.');
-      navigate('/login');
-      return;
-    }
-    if (!window.phoneForVerify) {
-       toast.error('Identity missing. Please restart login.');
-       navigate('/login');
-       return;
-    }
+  const handleResend = async () => {
+    if (timer > 0) return;
+    if (!window.phoneForVerify) return toast.error('Phone number missing. Please try logging in again.');
     
     setLoading(true);
     try {
-      const confirmationResult = window.confirmationResult;
-      const result = await confirmationResult.confirm(code);
-      const idToken = await result.user.getIdToken();
+      const { RecaptchaVerifier } = await import('../../utils/firebase');
+      const { auth } = await import('../../utils/firebase');
+      const { signInWithPhoneNumber } = await import('firebase/auth');
+
+      // Create a temporary hidden container for reCAPTCHA if it doesn't exist
+      if (!window.resendRecaptchaVerifier) {
+        let container = document.getElementById('resend-recaptcha-container');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'resend-recaptcha-container';
+          document.body.appendChild(container);
+        }
+        window.resendRecaptchaVerifier = new RecaptchaVerifier(auth, 'resend-recaptcha-container', { size: 'invisible' });
+      }
       
-      const res = await api.post('/api/riders/auth/firebase', { 
-        idToken
-      });
+      const confirmationResult = await signInWithPhoneNumber(auth, window.phoneForVerify, window.resendRecaptchaVerifier);
+      window.confirmationResult = confirmationResult;
       
-      setAuth(res.data.rider, res.data.token);
-      toast.success('Login successful!');
-      navigate('/dashboard');
+      setTimer(30);
+      toast.success('New OTP sent!');
     } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.error || 'Verification failed. Try again.');
+      console.error('OTP Resend Error:', err);
+      toast.error(err.message || 'Failed to resend OTP');
     } finally {
-      if (isMounted.current) setLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (otp.length !== 6) return toast.error('Enter 6 digits');
+    if (!window.confirmationResult) return toast.error('Verification session expired. Please resend OTP.');
+    
+    setLoading(true);
+    try {
+      const result = await window.confirmationResult.confirm(otp);
+      const idToken = await result.user.getIdToken();
+      const res = await authenticateWithFirebase(idToken);
+      if (res.needsRegistration) {
+        toast.success('Phone verified!');
+        navigate('/register', { state: { firebaseData: res.firebaseData, idToken } });
+      } else {
+        setAuth(res.rider);
+        toast.success('Welcome back!');
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error('OTP Verification Error:', err);
+      if (err.code === 'auth/invalid-verification-code') {
+        toast.error('Invalid OTP. Please check and try again.');
+      } else if (err.code === 'auth/code-expired') {
+        toast.error('OTP has expired. Please resend a new one.');
+      } else {
+        toast.error('Verification failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen animated-bg flex items-center justify-center p-5">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-sm"
-      >
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-indigo flex items-center justify-center mx-auto mb-3">
-            <Shield className="w-7 h-7 text-white" strokeWidth={2.5} />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-ink">Verify your phone</h1>
-          <p className="text-ink-muted text-sm mt-2">
-            Code sent to <span className="font-semibold text-ink">{window.phoneForVerify || 'your phone'}</span>
-          </p>
-        </div>
+    <div style={page}>
+      <div style={topBar}>
+        <Link to="/login" style={topLink}><ChevronLeft size={18} /> Back to Login</Link>
+      </div>
 
-        <div className="card p-7">
-          <div className="flex justify-center gap-2.5 mb-6">
-            {otp.map((d, i) => (
-              <motion.input
-                key={i}
-                ref={(el) => (refs.current[i] = el)}
-                type="text" inputMode="numeric" maxLength={1}
-                value={d}
-                onChange={(e) => handleChange(i, e.target.value)}
-                onKeyDown={(e) => handleKey(i, e)}
-                whileFocus={{ scale: 1.05 }}
-                className={`w-12 h-14 text-center text-xl font-display font-bold rounded-xl border-[1.5px] outline-none transition-all ${
-                  d ? 'border-indigo bg-indigo-soft text-indigo' : 'border-border bg-surface text-ink'
-                } focus:border-indigo focus:shadow-glow`}
+      <div style={center}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          style={card}
+        >
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={logoWrapper}>
+              <img src="/logo.png" alt="GigShield" style={{ height: 32 }} />
+            </div>
+            <h1 style={heading}>Verify PIN</h1>
+            <p style={subheading}>
+              We've sent a 6-digit code to <br />
+              <b style={{ color: '#1a1a1a' }}>{phone}</b>
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div style={fieldWrap}>
+              <label style={label}>Security Code</label>
+              <input
+                type="text"
+                maxLength={6}
+                required
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                placeholder="000 000"
+                style={boxInput}
+                autoFocus
               />
-            ))}
+            </div>
+
+            <button type="submit" disabled={loading} style={primaryBtn}>
+              {loading ? 'Verifying...' : 'Verify account'}
+            </button>
+          </form>
+
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <button 
+              onClick={handleResend} 
+              disabled={timer > 0 || loading}
+              style={{ ...textBtn, cursor: (timer > 0 || loading) ? 'default' : 'pointer', color: (timer > 0 || loading) ? '#bbb' : '#4a1d96' }}
+            >
+              {timer > 0 ? `Resend in ${timer}s` : 'Resend code'}
+            </button>
           </div>
-
-          <button onClick={handleVerify}
-            disabled={loading || otp.join('').length !== 6}
-            className="btn-primary w-full">
-            {loading ? <span className="spinner" /> : 'Verify & Continue'}
-          </button>
-
-          <div className="text-center mt-6">
-            {countdown > 0 ? (
-              <p className="text-sm text-ink-muted">
-                Resend in <span className="font-semibold text-indigo">{countdown}s</span>
-              </p>
-            ) : (
-              <button 
-                onClick={async () => {
-                  try {
-                    if (!window.phoneForVerify) {
-                      toast.error('Identity missing. Please restart login.');
-                      navigate('/login');
-                      return;
-                    }
-
-                    setLoading(true);
-                    if (!window.recaptchaVerifier) {
-                      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'login-container', { size: 'invisible' });
-                    }
-                    const result = await signInWithPhoneNumber(auth, window.phoneForVerify, window.recaptchaVerifier);
-                    window.confirmationResult = result;
-                    setCountdown(30);
-                    toast.success('New code sent!');
-                  } catch (err) {
-                    toast.error('Failed to resend. Please go back and try again.');
-                  } finally {
-                    if (isMounted.current) setLoading(false);
-                  }
-                }}
-                className="text-sm text-indigo font-semibold hover:underline"
-              >
-                Resend code
-              </button>
-            )}
-          </div>
-        </div>
-
-        <button onClick={() => navigate('/login')}
-          className="flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink transition-colors mx-auto mt-6">
-          <ArrowLeft className="w-4 h-4" /> Back to Login
-        </button>
-
-        {/* Hidden container for reCAPTCHA Verifier */}
-        <div id="login-container"></div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }
+
+const page = { minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f7f5', fontFamily: "'Inter', sans-serif" };
+const topBar = { padding: '24px 40px' };
+const topLink = { fontSize: 14, color: '#4a1d96', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 };
+const center = { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px 80px' };
+const card = { width: '100%', maxWidth: 400, background: '#fff', padding: '40px', borderRadius: 24, boxShadow: '0 10px 25px rgba(0,0,0,0.03)', border: '1px solid #efeae2' };
+const logoWrapper = { marginBottom: 16, display: 'flex', justifyContent: 'center' };
+const heading = { fontSize: 28, fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px' };
+const subheading = { fontSize: 14, color: '#666', lineHeight: 1.5, margin: 0 };
+const fieldWrap = { marginBottom: 20 };
+const label = { display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 8 };
+const boxInput = { width: '100%', padding: '14px 16px', fontSize: 20, color: '#1a1a1a', background: '#fcfbf9', border: '1.5px solid #ece8e1', borderRadius: 12, outline: 'none', textAlign: 'center', letterSpacing: '0.2em' };
+const primaryBtn = { width: '100%', padding: '15.5px', borderRadius: 12, background: '#1a1a1a', color: '#fff', fontSize: 15, fontWeight: 600, border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' };
+const textBtn = { background: 'none', border: 'none', fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif" };
 
 export default Verify;

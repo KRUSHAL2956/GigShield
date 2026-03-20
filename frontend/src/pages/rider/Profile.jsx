@@ -12,11 +12,11 @@ export default function Profile() {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/register');
+      navigate('/login');
     } catch (err) {
       console.error('Logout failed:', err);
       // Fallback redirect
-      navigate('/register');
+      navigate('/login');
     }
   };
 

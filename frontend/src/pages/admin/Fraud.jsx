@@ -82,8 +82,8 @@ export default function AdminFraud() {
       <h3 className="font-display font-bold text-xl text-ink mb-4">Manual Review Queue</h3>
       
       {claims.length === 0 ? (
-        <div className="card p-12 text-center border-dashed bg-surface-sunken">
-          <div className="w-16 h-16 bg-teal-soft text-teal rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="card-gigshield sm:!p-12 !p-8 text-center border-dashed bg-surface-sunken">
+          <div className="w-16 h-16 bg-mint/20 text-forest rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8" />
           </div>
           <h3 className="text-lg font-bold text-ink">Zero pending reviews.</h3>

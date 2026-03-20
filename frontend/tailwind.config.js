@@ -4,13 +4,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: { DEFAULT: '#1a1032', light: '#3d2c5e', muted: '#6b5f7d', deep: '#140d24', border: '#2d204a' },
-        surface: { DEFAULT: '#faf9fe', raised: '#ffffff', sunken: '#f0eef5' },
-        coral: { DEFAULT: '#ff6b6b', soft: '#fff0f0' },
-        indigo: { DEFAULT: '#4a1d96', soft: '#ede7f9', deep: '#3b1578', muted: '#8c7baf' },
-        teal: { DEFAULT: '#0d9488', soft: '#e6faf8' },
-        amber: { DEFAULT: '#d97706', soft: '#fef3c7' },
-        border: { DEFAULT: '#e8e5f0' },
+        forest: { DEFAULT: '#00332c', deep: '#002621' },
+        mint: { DEFAULT: '#29f59f', soft: '#f4fffb', border: '#e6f7f0' },
+        ink: { DEFAULT: '#00332c', muted: '#6b7c7a' },
+        surface: { DEFAULT: '#ffffff', raised: '#ffffff', sunken: '#f8fbf9' },
+        coral: { DEFAULT: '#ff6b6b' },
+        amber: { DEFAULT: '#f59e0b' },
+        border: { DEFAULT: '#e8eee4' },
       },
       fontFamily: {
         sans: ['DM Sans', 'system-ui', '-apple-system', 'sans-serif'],

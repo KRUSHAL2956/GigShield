@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Bike, ChevronRight, User, Phone, IndianRupee, Shield, ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Bike, ChevronRight, ChevronLeft, User, Mail, Wallet, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../api/axios';
 import useAuthStore from '../../store/authStore';
+import { auth, googleProvider } from '../../utils/firebase';
+import { signInWithPopup } from 'firebase/auth';
+import { authenticateWithFirebase } from '../../services/dbServices';
 
 const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Pune', 'Hyderabad'];
 const ZONES = {
@@ -16,52 +19,92 @@ const ZONES = {
   Hyderabad: ['Banjara Hills', 'Gachibowli', 'Madhapur', 'Secunderabad', 'Kukatpally'],
 };
 
-const ease = [0.4, 0, 0.2, 1];
-
 function Register() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setAuth, setScore } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [[step, dir], setStep] = useState([0, 0]);
 
   const fbData = location.state?.firebaseData || {};
-  
-  const sanitizePhone = (phone) => {
-    if (!phone) return '';
-    const digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('91') && digits.length > 10) {
-      return digits.slice(-10);
-    }
-    return digits.slice(-10);
-  };
+  const sanitize = (ph) => ph ? ph.replace(/\D/g, '').slice(-10) : '';
 
   const [form, setForm] = useState({
-    name: fbData.name || '', 
-    phone: sanitizePhone(fbData.phone), 
-    city: 'Mumbai', 
-    zone: '', 
-    platform: 'Swiggy', 
+    name: fbData.name || '',
+    email: fbData.email || '',
+    phone: sanitize(fbData.phone),
+    password: '',
+    city: 'Mumbai',
+    zone: '',
+    platform: 'Swiggy',
     avg_weekly_earnings: '',
+    hours_per_day: '8',
+    experience: '6-12 months',
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: value, ...(name === 'city' ? { zone: '' } : {}) }));
+  const update = (k, v) => setForm((p) => ({ ...p, [k]: v, ...(k === 'city' ? { zone: '' } : {}) }));
+
+  const validateStep = () => {
+    if (step === 0) {
+      if (!form.name.trim()) { toast.error('Name is required'); return false; }
+      if (!form.email.trim() || !form.email.includes('@')) { toast.error('Valid email is required'); return false; }
+      if (!/^[6-9]\d{9}$/.test(form.phone)) { toast.error('Valid phone is required'); return false; }
+      if (!form.password || form.password.length < 8) { toast.error('Password must be at least 8 characters'); return false; }
+    } else if (step === 1) {
+      if (!form.zone) { toast.error('Select your zone'); return false; }
+      if (!form.avg_weekly_earnings || +form.avg_weekly_earnings < 500) { toast.error('Min earnings ₹500'); return false; }
+    }
+    return true;
+  };
+
+  const next = () => { if (validateStep()) setStep([step + 1, 1]); };
+  const back = () => { if (step > 0) setStep([step - 1, -1]); };
+
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      const res = await authenticateWithFirebase(idToken);
+      if (res.needsRegistration) {
+        setForm(p => ({
+          ...p,
+          name: res.firebaseData.name || p.name,
+          email: res.firebaseData.email || p.email,
+        }));
+        toast.success('Google linked! Complete your profile.');
+      } else {
+        setAuth(res.rider);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user') toast.error('Google sign-up failed');
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateStep()) return;
     setLoading(true);
     try {
       const res = await api.post('/api/riders/register', {
-        ...form, 
-        avg_weekly_earnings: parseFloat(form.avg_weekly_earnings),
-        firebase_uid: location.state?.firebaseData?.uid // Pass the UID to link the account
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+        city: form.city,
+        zone: form.zone,
+        platform: form.platform,
+        avg_weekly_earnings: +form.avg_weekly_earnings,
+        firebase_uid: fbData.uid || auth.currentUser?.uid,
       });
-      setAuth(res.data.rider, res.data.token);
+      setAuth(res.data.rider);
       if (res.data.score) setScore(res.data.score);
-      toast.success('Welcome to GigShield!');
-      navigate('/verify');
+      toast.success('🎉 Registration complete!');
+      navigate('/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed');
     } finally {
@@ -70,152 +113,238 @@ function Register() {
   };
 
   return (
-    <div className="min-h-screen animated-bg flex relative">
-      <Link to="/" className="absolute top-8 left-8 z-50 flex items-center gap-2 text-ink-muted hover:text-indigo transition-colors font-medium">
-        <ArrowLeft className="w-4 h-4" /> Back to Home
-      </Link>
-      {/* ── Left: Hero ───────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[45%] flex-col justify-center items-center p-12 relative overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease }}
-          className="relative z-10 max-w-md text-center"
-        >
-          <div className="flex justify-center mb-12">
-            <img src="/logo.png" alt="GigShield Logo" className="h-10 object-contain" />
-          </div>
-          <img
-            src="/hero.png"
-            alt="Delivery rider protected by shield"
-            className="w-80 mx-auto mb-8 drop-shadow-lg"
-          />
-          <h2 className="font-display text-3xl font-bold text-ink mb-3">
-            Rain or shine, you're&nbsp;covered.
-          </h2>
-          <p className="text-ink-muted text-base leading-relaxed">
-            GigShield auto-detects disruptions and sends payouts to your UPI
-            — no claims, no paperwork, zero hassle.
-          </p>
-
-          {/* Trust strip */}
-          <div className="flex items-center justify-center gap-6 mt-8">
-            {['5,000+ riders', 'AI-powered', '< 30s payouts'].map((t) => (
-              <span key={t} className="badge bg-white/70 text-ink-muted shadow-soft">
-                {t}
-              </span>
-            ))}
-          </div>
-        </motion.div>
+    <div style={page}>
+      <div style={topBar}>
+        {step === 0 ? (
+          <Link to="/" style={topLink}><ChevronLeft size={18} /> Back to Home</Link>
+        ) : (
+          <button type="button" onClick={back} style={{ ...topLink, background: 'none', border: 'none', cursor: 'pointer' }}>
+            <ChevronLeft size={18} /> Previous Step
+          </button>
+        )}
       </div>
 
-      {/* ── Right: Form ──────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-5 md:p-10">
+      <div style={center}>
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, ease, delay: 0.15 }}
-          className="w-full max-w-md"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          style={card}
         >
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-indigo flex items-center justify-center mx-auto mb-3">
-              <Shield className="w-7 h-7 text-white" strokeWidth={2.5} />
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={logoWrapper}>
+               <img src="/logo.png" alt="GigShield" style={{ height: 32 }} />
             </div>
-            <h1 className="font-display text-2xl font-bold text-ink">GigShield</h1>
-            <p className="text-ink-muted text-sm mt-1">Income protection for delivery riders</p>
-          </div>
-
-          <div className="card p-7 md:p-8">
-            <h2 className="font-display text-xl font-bold text-ink mb-1">Create account</h2>
-            <p className="text-ink-muted text-sm mb-6">Start your coverage in under 2 minutes</p>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name */}
-              <div>
-                <label className="label">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-ink-muted/50" />
-                  <input name="name" value={form.name} onChange={handleChange} required
-                    placeholder="Ravi Kumar" className="input-field" />
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="label">Phone Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-ink-muted/50" />
-                  <input name="phone" value={form.phone} onChange={handleChange} required
-                    type="tel" pattern="[6-9][0-9]{9}" placeholder="9876543210" className="input-field" />
-                </div>
-              </div>
-
-              {/* City + Zone */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">City</label>
-                  <select name="city" value={form.city} onChange={handleChange} className="select-field">
-                    {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Zone</label>
-                  <select name="zone" value={form.zone} onChange={handleChange} required className="select-field">
-                    <option value="">Select</option>
-                    {(ZONES[form.city] || []).map((z) => <option key={z} value={z}>{z}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Platform */}
-              <div>
-                <label className="label">Platform</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['Swiggy', 'Zomato'].map((p) => (
-                    <button key={p} type="button"
-                      onClick={() => setForm((f) => ({ ...f, platform: p }))}
-                      className={`py-3 rounded-sm border-[1.5px] font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-                        form.platform === p
-                          ? 'bg-indigo-soft border-indigo text-indigo'
-                          : 'bg-surface border-border text-ink-muted hover:border-ink-muted/40'
-                      }`}
-                    >
-                      <Bike className="w-4 h-4" /> {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Earnings */}
-              <div>
-                <label className="label">Avg Weekly Earnings</label>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-ink-muted/50" />
-                  <input name="avg_weekly_earnings" value={form.avg_weekly_earnings} onChange={handleChange}
-                    required type="number" min="500" max="20000" placeholder="5000" className="input-field" />
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
-                {loading ? <span className="spinner" /> : <>Get Started <ChevronRight className="w-4 h-4" /></>}
-              </button>
-            </form>
-
-            <p className="text-center text-sm text-ink-muted mt-5">
-              Already have an account?{' '}
-              <Link to="/login" className="text-indigo font-semibold hover:underline">Log in</Link>
+            <h1 style={heading}>Create Account</h1>
+            <p style={subheading}>
+              {step === 0 && "Let's start with your basic details"}
+              {step === 1 && "Tell us about your delivery work"}
             </p>
           </div>
 
-          <p className="text-center text-xs text-ink-muted/60 mt-6">
-            By signing up you agree to our <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-indigo">Terms</a> & <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-indigo">Privacy Policy</a>
+          <div style={progressContainer}>
+            <div style={{ ...progressBar, width: `${((step + 1) / 2) * 100}%` }} />
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ position: 'relative', minHeight: 400 }}>
+            <AnimatePresence mode="wait" initial={false}>
+              {step === 0 && (
+                <Step1 
+                  key="step0"
+                  form={form} 
+                  update={update} 
+                  next={next} 
+                  handleGoogle={handleGoogle} 
+                  googleLoading={googleLoading}
+                />
+              )}
+              {step === 1 && (
+                <Step2 
+                  key="step1"
+                  form={form} 
+                  update={update} 
+                  back={back} 
+                  loading={loading} 
+                />
+              )}
+            </AnimatePresence>
+          </form>
+
+          <p style={footerText}>
+            Step {step + 1} of 2
           </p>
         </motion.div>
       </div>
     </div>
   );
 }
+
+// ─── Step Components ───
+
+function Step1({ form, update, next, handleGoogle, googleLoading }) {
+  return (
+    <motion.div 
+      initial={{ x: 20, opacity: 0 }} 
+      animate={{ x: 0, opacity: 1 }} 
+      exit={{ x: -20, opacity: 0 }} 
+      transition={{ duration: 0.3 }}
+      style={{ background: '#fff' }}
+    >
+      <div style={fieldWrap}>
+        <label style={label}>Full Name</label>
+        <div style={inputContainer}>
+          <User style={fieldIcon} />
+          <input value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Rahul Sharma" style={boxInput} />
+        </div>
+      </div>
+      
+      <div style={fieldWrap}>
+        <label style={label}>Email ID</label>
+        <div style={inputContainer}>
+          <Mail style={fieldIcon} />
+          <input value={form.email} onChange={(e) => update('email', e.target.value)} type="email" placeholder="rahul@example.com" style={boxInput} />
+        </div>
+      </div>
+
+      <div style={fieldWrap}>
+        <label style={label}>Phone Number</label>
+        <div style={{ display: 'flex' }}>
+          <div style={prefixBox}>+91</div>
+          <input 
+            value={form.phone} 
+            onChange={(e) => update('phone', e.target.value)} 
+            type="tel" 
+            pattern="[6-9][0-9]{9}" 
+            placeholder="98765 43210" 
+            style={{ ...boxInput, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }} 
+          />
+        </div>
+      </div>
+
+      <div style={fieldWrap}>
+        <label style={label}>Password</label>
+        <div style={inputContainer}>
+          <User style={fieldIcon} />
+          <input 
+            value={form.password} 
+            onChange={(e) => update('password', e.target.value)} 
+            type="password" 
+            placeholder="Create a strong password" 
+            style={boxInput} 
+          />
+        </div>
+      </div>
+
+      <button type="button" onClick={next} style={{ ...primaryBtn, background: '#10b981' }}>
+        Continue <ChevronRight style={{ width: 18, height: 18 }} />
+      </button>
+
+      <>
+        <div style={divider}>
+          <span style={line} />
+          <span style={dividerText}>or</span>
+          <span style={line} />
+        </div>
+
+        <button type="button" onClick={handleGoogle} disabled={googleLoading} style={socialBtn}>
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" style={{ width: 18, height: 18 }} />
+          Sign up with Google
+        </button>
+      </>
+
+      <p style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#666' }}>
+        Already have an account? <Link to="/login" style={linkStyle}>Log in</Link>
+      </p>
+    </motion.div>
+  );
+}
+
+function Step2({ form, update, back, loading }) {
+  return (
+    <motion.div 
+      initial={{ x: 20, opacity: 0 }} 
+      animate={{ x: 0, opacity: 1 }} 
+      exit={{ x: -20, opacity: 0 }} 
+      transition={{ duration: 0.3 }}
+      style={{ background: '#fff' }}
+    >
+      <div style={fieldWrap}>
+        <label style={label}>Platform</label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {['Swiggy', 'Zomato'].map(p => (
+            <button key={p} type="button" onClick={() => update('platform', p)} style={{ ...pillBtn, background: form.platform === p ? 'var(--forest-green)' : '#fff', color: form.platform === p ? '#fff' : 'var(--forest-green)', borderColor: form.platform === p ? 'var(--forest-green)' : 'var(--border)' }}>
+              <Bike style={{ width: 14, height: 14 }} /> {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, ...fieldWrap }}>
+        <div style={{ flex: 1 }}>
+          <label style={label}>City</label>
+          <select value={form.city} onChange={(e) => update('city', e.target.value)} style={selectBox}>
+            {CITIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={label}>Zone</label>
+          <select value={form.zone} onChange={(e) => update('zone', e.target.value)} required style={selectBox}>
+            <option value="">Select</option>
+            {(ZONES[form.city] || []).map(z => <option key={z}>{z}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, ...fieldWrap }}>
+        <div style={{ flex: 1 }}>
+          <label style={label}>Weekly Earnings</label>
+          <div style={inputContainer}>
+            <Wallet style={fieldIcon} />
+            <input type="number" value={form.avg_weekly_earnings} onChange={(e) => update('avg_weekly_earnings', e.target.value)} placeholder="5000" style={boxInput} />
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={label}>Hours / Day</label>
+          <div style={inputContainer}>
+            <Clock style={fieldIcon} />
+            <input type="number" value={form.hours_per_day} onChange={(e) => update('hours_per_day', e.target.value)} placeholder="8" style={boxInput} />
+          </div>
+        </div>
+      </div>
+      <div style={{ marginTop: 24 }}>
+        <button type="submit" disabled={loading} style={{ ...primaryBtn, marginTop: 0 }}>
+          {loading ? 'Processing...' : 'Complete Registration'}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+
+// ─── Styles ───
+const page = { minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f7f5', fontFamily: "'Inter', sans-serif" };
+const topBar = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 40px' };
+const topLink = { fontSize: 13, color: 'var(--forest-green)', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 };
+const center = { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px 60px' };
+const card = { width: '100%', maxWidth: 440, background: '#fff', padding: '40px', borderRadius: 24, boxShadow: '0 20px 40px rgba(0,51,44,0.05)', border: '1.5px solid var(--border)' };
+const logoWrapper = { marginBottom: 16, display: 'flex', justifyContent: 'center' };
+const heading = { fontSize: 26, fontWeight: 800, color: 'var(--forest-green)', margin: '0 0 6px' };
+const subheading = { fontSize: 14, color: 'var(--ink-muted)', margin: 0 };
+const progressContainer = { width: '100%', height: 4, background: '#f0f0f0', borderRadius: 2, margin: '16px 0 24px', overflow: 'hidden' };
+const progressBar = { height: '100%', background: 'var(--mint-green)', transition: 'width 0.4s ease' };
+const fieldWrap = { marginBottom: 20 };
+const label = { display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--forest-green)', marginBottom: 8 };
+const inputContainer = { position: 'relative' };
+const fieldIcon = { position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#ccc' };
+const boxInput = { width: '100%', padding: '13px 14px 13px 40px', fontSize: 14, color: 'var(--forest-green)', background: '#fcfbf9', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none' };
+const prefixBox = { padding: '13px 14px', fontSize: 14, color: '#999', fontWeight: 600, background: '#fcfbf9', border: '1.5px solid var(--border)', borderRight: 'none', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 };
+const selectBox = { ...boxInput, cursor: 'pointer', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23bbb' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 14px center' };
+const primaryBtn = { width: '100%', padding: '14.5px', borderRadius: 10, background: 'var(--mint-green)', color: 'var(--forest-green)', fontSize: 14, fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 20px rgba(41, 245, 159, 0.25)', marginTop: 24 };
+const outlineBtn = { width: '100%', padding: '14px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: 'var(--forest-green)', cursor: 'pointer' };
+const socialBtn = { width: '100%', padding: '13px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 14, fontWeight: 700, color: 'var(--forest-green)', cursor: 'pointer' };
+const divider = { display: 'flex', alignItems: 'center', margin: '24px 0', gap: 12 };
+const line = { flex: 1, height: 1.5, background: 'var(--border)' };
+const dividerText = { fontSize: 13, color: '#bbb', fontWeight: 600 };
+const linkStyle = { color: 'var(--mint-green)', fontWeight: 700, textDecoration: 'none' };
+const pillBtn = { padding: '9px 18px', borderRadius: 40, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 };
+const footerText = { textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--ink-muted)', fontWeight: 600 };
 
 export default Register;

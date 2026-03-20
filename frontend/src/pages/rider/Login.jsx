@@ -1,186 +1,239 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Phone, ChevronRight, Shield, ArrowLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { auth, googleProvider, RecaptchaVerifier } from '../../utils/firebase';
-import { signInWithPhoneNumber, signInWithPopup } from 'firebase/auth';
-import useAuthStore from '../../store/authStore';
 import api from '../../api/axios';
-
-const ease = [0.4, 0, 0.2, 1];
+import { auth, googleProvider } from '../../utils/firebase';
+import { signInWithPopup } from 'firebase/auth';
+import useAuthStore from '../../store/authStore';
+import { authenticateWithFirebase } from '../../services/dbServices';
 
 function Login() {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
+  const { rider, setAuth } = useAuthStore();
+  
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
-    const initRecaptcha = async () => {
-      try {
-        if (!window.recaptchaVerifier) {
-          const container = document.getElementById('recaptcha-container');
-          if (container) container.innerHTML = ''; // Clear any existing widgets
-          
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
-            callback: () => {
-              console.log('reCAPTCHA verified');
-            },
-            'expired-callback': () => {
-              toast.error('reCAPTCHA expired. Please try again.');
-              window.recaptchaVerifier?.render();
-            }
-          });
-          await window.recaptchaVerifier.render();
-        }
-      } catch (err) {
-        // Demote to warning as this is often caused by ad-blockers/firewalls and falls back gracefully
-        console.warn('reCAPTCHA Init Warning (Check ad-blockers):', err);
-      }
-    };
+    if (rider) navigate('/dashboard', { replace: true });
+  }, [rider, navigate]);
 
-    initRecaptcha();
+  const handleManualLogin = async (e) => {
+    e.preventDefault();
+    if (!/^\d{10}$/.test(phone)) return toast.error('Enter a valid 10-digit phone number');
+    if (!password) return toast.error('Enter your password');
 
-    return () => {
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-          window.recaptchaVerifier = null;
-        } catch (err) {
-          console.warn('reCAPTCHA Clear Error:', err);
-        }
-      }
-    };
-  }, []);
+    setLoading(true);
+    try {
+      const res = await api.post('/api/riders/login', { phone, password });
+      
+      setAuth(res.data.rider);
+      toast.success('Welcome back!');
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Login error:', err);
+      toast.error(err.response?.data?.error || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
+      const res = await authenticateWithFirebase(idToken);
       
-      const res = await api.post('/api/riders/auth/firebase', { idToken });
-      
-      if (res.data.needsRegistration) {
-        toast.success('Google authenticated! Please complete your profile.');
-        navigate('/register', { 
-          state: { 
-            firebaseData: res.data.firebaseData,
-            idToken 
-          } 
-        });
+      if (res.needsRegistration) {
+        toast.success('Google authenticated!');
+        navigate('/register', { state: { firebaseData: res.firebaseData, idToken } });
         return;
       }
-
-      setAuth(res.data.rider, res.data.token);
-      toast.success('Welcome Back!');
+      setAuth(res.rider);
+      toast.success('Welcome back!');
       navigate('/dashboard');
     } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.error || 'Google Login Failed');
+      if (err.code !== 'auth/popup-closed-by-user') {
+         console.error('Google login error:', err);
+         toast.error('Google login failed');
+      }
     } finally {
       setGoogleLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const formattedPhone = phone.startsWith('+') ? phone : '+91' + phone;
-    if (!/^\+[1-9]\d{1,14}$/.test(formattedPhone)) {
-      return toast.error('Invalid phone number (include country code)');
-    }
-    
-    setLoading(true);
-    try {
-      if (!window.recaptchaVerifier) {
-        throw new Error('reCAPTCHA not initialized. Please refresh the page.');
-      }
-      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
-      window.confirmationResult = confirmationResult;
-      window.phoneForVerify = formattedPhone;
-      toast.success('OTP sent to ' + formattedPhone);
-      navigate('/verify');
-    } catch (err) {
-      console.error('OTP Send Error:', err);
-      toast.error('Unable to send OTP. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen animated-bg flex items-center justify-center p-5 relative">
-      <Link to="/" className="absolute top-8 left-8 z-50 flex items-center gap-2 text-ink-muted hover:text-indigo transition-colors font-medium">
-        <ArrowLeft className="w-4 h-4" /> Back to Home
-      </Link>
-      
-      <div id="recaptcha-container"></div>
+    <div style={page}>
+      <div style={topBar}>
+        <Link to="/" style={topLink}><ChevronLeft size={18} /> Back</Link>
+        <Link to="/register" style={topLink}>Sign Up</Link>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-indigo flex items-center justify-center mx-auto mb-3">
-            <Shield className="w-7 h-7 text-white" strokeWidth={2.5} />
+      <div style={center}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          style={card}
+        >
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={logoWrapper}>
+               <img src="/logo.png" alt="GigShield" style={{ height: 32 }} />
+            </div>
+            <h1 style={heading}>Log in</h1>
+            <p style={subheading}>Access your rider protection dashboard</p>
           </div>
-          <h1 className="font-display text-2xl font-bold text-ink">Sign in to GigShield</h1>
-          <p className="text-ink-muted text-sm mt-1">Get back to coverage in seconds</p>
-        </div>
 
-        <div className="card p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="label">Phone Number</label>
-              <div className="relative">
-                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-ink-muted/50" />
+          <form onSubmit={handleManualLogin}>
+            <div style={fieldWrap}>
+              <label style={label}>Phone Number</label>
+              <div style={inputContainer}>
+                <span style={inputPrefix}>+91</span>
                 <input
                   type="tel"
                   required
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="9876543210"
-                  className="input-field pl-10"
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="98765 43210"
+                  style={{ ...boxInput, paddingLeft: 48 }}
                 />
               </div>
             </div>
 
-            <button type="submit" disabled={loading || googleLoading} className="btn-primary w-full">
-              {loading ? <span className="spinner" /> : <>Get OTP <ChevronRight className="w-4 h-4" /></>}
+            <div style={fieldWrap}>
+              <label style={label}>Password</label>
+              <div style={inputContainer}>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  style={boxInput}
+                />
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading || googleLoading} style={primaryBtn}>
+              {loading ? 'Logging in...' : 'Log in'}
             </button>
           </form>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border"></div></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-surface px-3 text-ink-muted font-medium">Or continue with</span></div>
+          <div style={divider}>
+            <span style={line} />
+            <span style={dividerText}>or</span>
+            <span style={line} />
           </div>
 
-          <button 
-            onClick={handleGoogleLogin}
-            disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 border-[1.5px] border-border rounded-xl font-semibold text-ink hover:bg-surface-hover hover:border-ink/10 transition-all duration-300"
-          >
-            {googleLoading ? <span className="spinner !border-indigo" /> : (
-              <>
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                Google
-              </>
-            )}
+          <button type="button" onClick={handleGoogleLogin} disabled={loading || googleLoading} style={socialBtn}>
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" style={{ width: 18, height: 18 }} />
+            {googleLoading ? 'Signing in...' : 'Sign in with Google'}
           </button>
 
-          <p className="text-center text-sm text-ink-muted mt-8">
-            New to GigShield?{' '}
-            <Link to="/register" className="text-indigo font-semibold hover:underline">Create account</Link>
+          <p style={footerText}>
+            Don't have an account? <Link to="/register" style={link}>Sign up</Link>
           </p>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }
+
+const page = {
+  minHeight: '100vh', display: 'flex', flexDirection: 'column',
+  background: '#f8f7f5', fontFamily: "'Inter', sans-serif",
+};
+
+const topBar = {
+  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  padding: '24px 40px',
+};
+
+const topLink = {
+  fontSize: 14, color: 'var(--forest-green)', fontWeight: 700, textDecoration: 'none',
+  display: 'flex', alignItems: 'center', gap: 4
+};
+
+const center = {
+  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px 60px',
+};
+
+const card = {
+  width: '100%', maxWidth: 420,
+  background: '#ffffff',
+  padding: '40px',
+  borderRadius: 24,
+  boxShadow: '0 20px 40px rgba(0,51,44,0.05)',
+  border: '1.5px solid var(--border)',
+};
+
+const logoWrapper = {
+  marginBottom: 16, display: 'flex', justifyContent: 'center'
+};
+
+const heading = {
+  fontSize: 28, fontWeight: 800, color: 'var(--forest-green)', margin: '0 0 8px',
+};
+
+const subheading = {
+  fontSize: 14, color: 'var(--ink-muted)', margin: 0,
+};
+
+const fieldWrap = { marginBottom: 20 };
+
+const label = {
+  display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--forest-green)', marginBottom: 8,
+};
+
+const inputContainer = {
+  position: 'relative', display: 'flex', alignItems: 'center',
+};
+
+const inputPrefix = {
+  position: 'absolute', left: 16, fontSize: 15, color: '#999', fontWeight: 600,
+};
+
+const boxInput = {
+  width: '100%', padding: '14px 16px',
+  fontSize: 15, color: 'var(--forest-green)',
+  background: '#fcfbf9', border: '1.5px solid var(--border)', borderRadius: 12,
+  outline: 'none', transition: 'all 0.2s',
+};
+
+const primaryBtn = {
+  width: '100%', padding: '15.5px', borderRadius: 12,
+  background: 'var(--mint-green)', color: 'var(--forest-green)', fontSize: 15, fontWeight: 800,
+  border: 'none', cursor: 'pointer',
+  boxShadow: '0 8px 20px rgba(41, 245, 159, 0.25)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+};
+
+const divider = {
+  display: 'flex', alignItems: 'center', margin: '24px 0', gap: 12,
+};
+
+const line = { flex: 1, height: 1.5, background: 'var(--border)' };
+
+const dividerText = { fontSize: 13, color: '#bbb', fontWeight: 600 };
+
+const socialBtn = {
+  width: '100%', padding: '14px', borderRadius: 12,
+  background: '#fff', border: '1.5px solid var(--border)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+  fontSize: 14, fontWeight: 700, color: 'var(--forest-green)', cursor: 'pointer',
+};
+
+const footerText = {
+  textAlign: 'center', marginTop: 32, fontSize: 14, color: 'var(--ink-muted)',
+};
+
+const link = {
+  color: 'var(--mint-green)', fontWeight: 700, textDecoration: 'none',
+};
 
 export default Login;
