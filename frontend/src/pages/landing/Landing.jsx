@@ -93,18 +93,18 @@ export default function Landing() {
                   Live in 6 Cities
                 </div>
               
-              <h1 className="text-6xl lg:text-[84px] leading-[0.95] font-extrabold text-forest mb-8 tracking-tighter">
-                AI Insurance for <br /> <span className="text-mint">Food Riders</span>
+              <h1 className="text-5xl md:text-7xl lg:text-[84px] leading-[0.95] font-extrabold text-forest mb-8 tracking-tighter">
+                AI Insurance for <br className="hidden md:block" /> <span className="text-mint">Food Riders</span>
               </h1>
               <p className="text-xl text-ink-muted mb-12 max-w-lg leading-relaxed font-medium">
                 Automatically protect your income from rain, heat, floods and pollution. <span className="text-forest font-bold text-lg">No claims to file. Instant UPI payouts.</span>
               </p>
               
-               <div className="flex items-center gap-5 mb-16">
-                 <Link to="/register" className="btn-gigshield-primary !px-10 !py-5">
+               <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mb-16">
+                 <Link to="/register" className="btn-gigshield-primary w-full sm:w-auto !px-10 !py-5">
                    Get Coverage &rarr;
                  </Link>
-                 <a href="#how-it-works" className="btn-gigshield-outline !px-10 !py-5">
+                 <a href="#how-it-works" className="btn-gigshield-outline w-full sm:w-auto !px-10 !py-5">
                    Walkthrough &rarr;
                  </a>
               </div>
@@ -230,7 +230,7 @@ export default function Landing() {
                initial="initial"
                whileInView="whileInView"
                viewport={{ once: false, amount: 0.1 }}
-               className="grid md:grid-cols-4 gap-8"
+               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
              >
                 {[
                   { step: '1', title: 'Rain Detected', desc: 'Our API detects heavy rain in your working zone.', icon: CloudRain },
@@ -358,12 +358,13 @@ export default function Landing() {
                variants={reveal}
                initial="initial"
                whileInView="whileInView"
-               className="max-w-5xl mx-auto rounded-[40px] overflow-hidden shadow-[0_32px_80px_rgba(0,51,44,0.1)] border border-white p-3 bg-gradient-to-b from-white to-[#f4fffb]"
+               viewport={{ once: false, amount: 0.1 }}
+               className="max-w-5xl mx-auto rounded-[32px] md:rounded-[40px] overflow-hidden shadow-[0_32px_80px_rgba(0,51,44,0.1)] border border-white p-2 md:p-3 bg-gradient-to-b from-white to-[#f4fffb]"
             >
-               <div className="bg-[#00332c] rounded-[32px] overflow-hidden h-[580px] relative flex shadow-inner">
+               <div className="bg-[#00332c] rounded-[24px] md:rounded-[32px] overflow-hidden h-[500px] md:h-[580px] relative flex shadow-inner">
                   
-                  {/* Mock Sidebar */}
-                  <div className="w-20 border-r border-white/5 flex flex-col items-center py-8 gap-10">
+                  {/* Mock Sidebar - Hidden on smallest screens */}
+                  <div className="hidden sm:flex w-16 md:w-20 border-r border-white/5 flex-col items-center py-8 gap-10">
                     <div className="w-10 h-10 rounded-xl bg-mint/20 flex items-center justify-center text-mint">
                       <Shield size={20} />
                     </div>
@@ -377,14 +378,14 @@ export default function Landing() {
 
                   <div className="flex-1 flex flex-col">
                     {/* Mock Window Header */}
-                    <div className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-10">
-                       <div className="flex gap-8">
-                          <div className="text-[11px] font-bold text-mint uppercase tracking-widest border-b-2 border-mint-green pb-5 mt-5">Earnings Overview</div>
-                          <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest pb-5 mt-5 cursor-pointer hover:text-white/60">Payout History</div>
+                    <div className="h-16 bg-white/5 border-b border-white/10 flex items-center justify-between px-6 md:px-10">
+                       <div className="flex gap-4 md:gap-8">
+                          <div className="text-[10px] md:text-[11px] font-bold text-mint uppercase tracking-widest border-b-2 border-mint-green pb-5 mt-5">Earnings</div>
+                          <div className="hidden xs:block text-[10px] md:text-[11px] font-bold text-white/30 uppercase tracking-widest pb-5 mt-5 cursor-pointer hover:text-white/60">History</div>
                        </div>
                        <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white text-xs font-bold">R</div>
-                         <div className="flex flex-col">
+                         <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white text-[10px] font-bold">R</div>
+                         <div className="hidden sm:flex flex-col">
                            <span className="text-[10px] font-bold text-white">Rahul S.</span>
                            <span className="text-[8px] text-white/40">Swiggy • Mumbai</span>
                          </div>
@@ -392,18 +393,18 @@ export default function Landing() {
                     </div>
 
                     {/* 📱 Mock Dashboard Interface - Showcasing the internal rider experience */}
-                    <div className="flex-1 p-10 grid grid-cols-12 gap-8 overflow-hidden">
-                       <div className="col-span-8 space-y-8 flex flex-col">
+                    <div className="flex-1 p-6 md:p-10 grid grid-cols-12 gap-6 md:gap-8 overflow-hidden">
+                       <div className="col-span-12 lg:col-span-8 space-y-6 md:space-y-8 flex flex-col">
                           {/* Live statistics for the currently viewing rider (hypothetical default) */}
-                          <div className="grid grid-cols-3 gap-5">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-5">
                              {[
                                { label: 'Protected Income', val: `₹${(globalStats.payoutsSent / 100000).toFixed(1)}L`, color: 'text-mint' },
                                { label: 'Rider Rating', val: '9.8', color: 'text-white' },
-                               { label: 'Avg. Payout', val: '₹420', color: 'text-white' }
+                               { label: 'Avg. Payout', val: '₹420', color: 'text-white', hideMobile: true }
                              ].map((s, i) => (
-                               <div key={i} className="p-5 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                                  <p className="text-[9px] uppercase font-bold text-white/30 tracking-widest mb-2">{s.label}</p>
-                                  <p className={`text-2xl font-black ${s.color}`}>{s.val}</p>
+                               <div key={i} className={`p-4 md:p-5 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-sm ${s.hideMobile ? 'hidden sm:block' : ''}`}>
+                                  <p className="text-[8px] md:text-[9px] uppercase font-bold text-white/30 tracking-widest mb-2">{s.label}</p>
+                                  <p className={`text-xl md:text-2xl font-black ${s.color}`}>{s.val}</p>
                                </div>
                              ))}
                           </div>
@@ -427,8 +428,7 @@ export default function Landing() {
                                   <div className="w-full h-px bg-white" />
                                   <div className="w-full h-px bg-white" />
                                 </div>
-                                
-                                // Staggered chart bars showing hypothetical data points
+                                {/* Staggered chart bars showing hypothetical data points */}
                                 {[45, 65, 40, 85, 55, 95, 75, 50, 60, 90, 80, 70].map((h, i) => (
                                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
                                       <motion.div 
@@ -443,8 +443,8 @@ export default function Landing() {
                           </div>
                        </div>
 
-                       {/* 📈 Live Status & Activity Feed */}
-                       <div className="col-span-4 space-y-6">
+                       {/* 📈 Live Status & Activity Feed - Responsive handling */}
+                       <div className="hidden lg:block lg:col-span-4 space-y-6">
                           <div className="p-6 rounded-3xl bg-mint text-forest relative overflow-hidden shadow-lg shadow-mint-green/10">
                              <p className="text-[9px] uppercase font-bold opacity-60 tracking-widest mb-1">Current Status</p>
                              <div className="flex items-center gap-2 mb-4">
@@ -487,9 +487,9 @@ export default function Landing() {
       {/* ── 7. Testimonials ── */}
       <section className="py-20 bg-white overflow-hidden">
          <div className="container-custom">
-            <div className="text-center mb-24">
-               <h2 className="text-[44px] font-extrabold text-forest mb-4 italic">Voice of the Riders</h2>
-               <p className="text-lg text-ink-muted">Thousands of riders now work with peace of mind.</p>
+            <div className="text-center mb-16 md:mb-24">
+               <h2 className="text-3xl md:text-4xl lg:text-[44px] font-extrabold text-forest mb-4 italic">Voice of the Riders</h2>
+               <p className="text-base md:text-lg text-ink-muted">Thousands of riders now work with peace of mind.</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -497,7 +497,7 @@ export default function Landing() {
                  { name: 'Rahul Sharma', city: 'Mumbai', platform: 'Swiggy', text: 'I lost 3 days last monsoon due to heavy rain. With GigShield, I got ₹1200 instantly. It is literally life-saving for us.' },
                  { name: 'Mohit Kumar', city: 'Delhi', platform: 'Zomato', text: 'The heat in Delhi is unbearable. I stopped riding at 12 PM, and GigShield covered my lost afternoon earnings. Amazing.' }
                ].map((t, i) => (
-                 <div key={i} className="card-gigshield !p-10 flex flex-col justify-between hover:bg-[#f9fdfb]">
+                 <div key={i} className="card-gigshield !p-6 md:!p-10 flex flex-col justify-between hover:bg-[#f9fdfb]">
                     <p className="text-forest italic leading-relaxed mb-10 opacity-70">"{t.text}"</p>
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 rounded-xl bg-forest text-white flex items-center justify-center font-bold text-xl">{t.name[0]}</div>
@@ -556,12 +556,12 @@ export default function Landing() {
       {/* ── 9. FAQ Section ── */}
       <section className="py-24 bg-white" id="faq">
          <div className="container-custom max-w-4xl">
-            <div className="text-center mb-16">
+            <div className="text-center mb-12 md:mb-16">
                <motion.div variants={reveal} initial="initial" whileInView="whileInView" className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-mint/10 text-forest text-[10px] font-bold tracking-[0.1em] uppercase mb-4 border border-mint/20">
                   Common Questions
                </motion.div>
-               <h2 className="text-[52px] font-black text-forest mb-4 tracking-tight">Questions? We got you.</h2>
-               <p className="text-xl text-ink-muted font-medium">Everything you need to know about GigShield protection.</p>
+               <h2 className="text-3xl md:text-4xl lg:text-[52px] font-black text-forest mb-4 tracking-tight">Questions? We got you.</h2>
+               <p className="text-lg md:text-xl text-ink-muted font-medium">Everything you need to know about GigShield protection.</p>
             </div>
  
             <motion.div 
@@ -590,7 +590,7 @@ export default function Landing() {
                            <ChevronDown size={14} />
                         </div>
                      </summary>
-                     <div className="px-7 pb-7 text-ink-muted leading-relaxed text-sm font-medium">
+                     <div className="px-5 md:px-7 pb-5 md:pb-7 text-ink-muted leading-relaxed text-sm font-medium">
                         {item.a}
                      </div>
                   </motion.details>

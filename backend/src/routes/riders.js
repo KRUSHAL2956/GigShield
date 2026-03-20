@@ -128,7 +128,7 @@ router.post('/login', authLimiter, async (req, res) => {
     res.cookie('custom_token', token, { 
        httpOnly: true, 
        secure: process.env.NODE_ENV === 'production', 
-       sameSite: 'strict', 
+       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', 
        maxAge: 7 * 24 * 60 * 60 * 1000 
     });
 
@@ -146,6 +146,10 @@ router.post('/auth/firebase', authLimiter, async (req, res) => {
   if (!idToken) return res.status(400).json({ error: 'ID Token required' });
 
   try {
+    if (!admin.apps.length) {
+      console.error('[Auth] Firebase Admin NOT initialized');
+      return res.status(500).json({ error: 'Authentication service unavailable' });
+    }
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, phone_number, email, displayName } = decodedToken;
     const name = displayName; 
@@ -194,7 +198,7 @@ router.post('/auth/firebase', authLimiter, async (req, res) => {
     res.cookie('custom_token', token, { 
        httpOnly: true, 
        secure: process.env.NODE_ENV === 'production', 
-       sameSite: 'strict', 
+       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', 
        maxAge: 7 * 24 * 60 * 60 * 1000 
     });
 
@@ -213,8 +217,8 @@ router.post('/auth/firebase', authLimiter, async (req, res) => {
 router.post('/logout', (req, res) => {
   res.clearCookie('custom_token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: process.env.NODE_ENV === 'production' || !!process.env.VERCEL,
+    sameSite: (process.env.NODE_ENV === 'production' || !!process.env.VERCEL) ? 'none' : 'lax'
   });
   res.json({ message: 'Logged out successfully' });
 });

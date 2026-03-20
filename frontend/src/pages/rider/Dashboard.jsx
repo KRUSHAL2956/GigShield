@@ -82,18 +82,18 @@ export default function Dashboard() {
       className="max-w-4xl mx-auto"
     >
       {/* ── Welcome Header ── */}
-      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="font-display font-bold text-3xl text-ink">
+          <h1 className="font-display font-bold text-3xl md:text-4xl text-ink">
             Hello, {rider?.name?.split(' ')[0] || 'Rider'}
           </h1>
-          <p className="text-ink-muted mt-1">Here's your {rider?.platform || 'Food Delivery'} coverage overview.</p>
+          <p className="text-ink-muted mt-1.5 font-medium">Here's your {rider?.platform || 'Food Delivery'} coverage overview.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4 bg-white p-2.5 rounded-2xl border border-border sm:border-none sm:p-0 shadow-sm sm:shadow-none">
           <TierBadge tier={activeScore.tier} size="lg" />
-          <div className="text-right">
-            <p className="text-sm font-semibold text-ink">Score: {activeScore.total_score}</p>
-            <p className="text-xs text-ink-muted">Top 5% in Mumbai</p>
+          <div className="text-right pr-2 sm:pr-0">
+            <p className="text-sm font-bold text-ink">Score: {activeScore.total_score}</p>
+            <p className="text-[10px] uppercase font-bold text-ink-muted tracking-wider">Top 5% in Mumbai</p>
           </div>
         </div>
       </motion.div>

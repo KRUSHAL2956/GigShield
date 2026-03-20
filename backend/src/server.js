@@ -91,9 +91,10 @@ app.use(helmet({
       upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
     },
   },
-  // In dev, we relax COOP and CEEP to allow easier debugging
-  crossOriginOpenerPolicy: process.env.NODE_ENV === 'production' ? { policy: "same-origin" } : false,
-  crossOriginEmbedderPolicy: process.env.NODE_ENV === 'production' ? { policy: "require-corp" } : false,
+  // Explicitly allowing popups and redirects for Firebase Auth in Production Vercel
+  crossOriginOpenerPolicy: { policy: "unsafe-none" }, 
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
 app.use(generalLimiter);

@@ -3,17 +3,21 @@ import { auth } from "../utils/firebase";
 
 const isProduction = window.location.hostname.endsWith("vercel.app");
 
-const API_URL =
+const sanitizeUrl = (url) => (url ? url.replace(/\/+$/, "") : "");
+
+const API_URL = sanitizeUrl(
   process.env.REACT_APP_API_URL ||
-  (isProduction
-    ? "https://gig-shield-backend.vercel.app"
-    : `http://${window.location.hostname}:5000`);
+    (isProduction
+      ? "https://gig-shield-backend.vercel.app"
+      : `http://${window.location.hostname}:5000`)
+);
 
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
+    "X-Requested-With": "XMLHttpRequest",
   },
 });
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Trophy, FileText, Activity, Shield } from 'lucide-react';
+import { LayoutDashboard, Trophy, FileText, Activity, User } from 'lucide-react';
 import Sidebar from './Sidebar';
 
 const MOBILE_NAV = [
@@ -8,6 +8,7 @@ const MOBILE_NAV = [
   { to: '/score', label: 'Score', icon: Trophy },
   { to: '/policy', label: 'Policy', icon: FileText },
   { to: '/claims', label: 'Claims', icon: Activity },
+  { to: '/profile', label: 'Profile', icon: User },
 ];
 
 export default function Layout() {
@@ -22,12 +23,9 @@ export default function Layout() {
       <div className="flex-1 md:ml-64 relative min-h-screen pb-20 md:pb-0">
         
         {/* Mobile Top Header */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-border h-14 flex items-center px-4">
+        <header className="md:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-border h-16 flex items-center px-6">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-forest flex items-center justify-center">
-              <Shield className="w-3.5 h-3.5 text-mint" strokeWidth={2.5} />
-            </div>
-            <span className="font-display font-bold text-forest tracking-tight">GigShield</span>
+            <img src="/logo.png" alt="GigShield Logo" className="h-8 object-contain" />
           </Link>
         </header>
 

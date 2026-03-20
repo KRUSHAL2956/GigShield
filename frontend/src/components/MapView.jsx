@@ -52,7 +52,7 @@ export default function MapView({ citiesData = [], onCityClick, activeCity }) {
   const mapCenter = activeCityData ? [activeCityData.lat, activeCityData.lon] : indiaCenter;
 
   return (
-    <div className="relative w-full aspect-square md:aspect-[4/3] max-w-lg mx-auto bg-[#f8fbf9] rounded-[var(--radius-lg)] border border-border overflow-hidden shadow-2xl shadow-forest/5">
+    <div className="relative w-full aspect-square md:aspect-video lg:aspect-[4/3] max-w-2xl mx-auto bg-[#f8fbf9] rounded-[var(--radius-lg)] border border-border overflow-hidden shadow-2xl shadow-forest/5">
       <MapContainer 
         center={indiaCenter} 
         zoom={zoomLevel} 
@@ -70,7 +70,6 @@ export default function MapView({ citiesData = [], onCityClick, activeCity }) {
         {citiesData.map((city) => {
           if (!city.lat || !city.lon) return null;
 
-          const isHovered = activeCity === city.city;
           const status = city.risk === 'HIGH' ? 'High Risk' : city.risk === 'MODERATE' ? 'Warning' : 'Safe';
 
           return (

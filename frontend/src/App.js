@@ -47,7 +47,10 @@ function App() {
 
       if (user) {
         try {
-          await checkAuth();
+          // If we already have a rider (from a fresh login), don't overwrite it with a potentially slower check
+          if (!useAuthStore.getState().rider) {
+            await checkAuth();
+          }
         } catch (error) {
           console.error("Auth check failed:", error);
         }

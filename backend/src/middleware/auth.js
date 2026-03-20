@@ -16,11 +16,14 @@ if (!JWT_SECRET) {
 async function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
-    let token = req.cookies && req.cookies.custom_token;
+    const cookieToken = req.cookies && req.cookies.custom_token;
 
-    // Check for Bearer token if cookie isn't present
-    if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+    // Prioritize explicit Authorization header (Bearer token)
+    let token = null;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
+    } else {
+      token = cookieToken;
     }
 
     if (!token) {
@@ -50,22 +53,41 @@ async function authMiddleware(req, res, next) {
     let decodedFirebase = null;
     let decodedCustom = null;
 
-    /**
-     * Dual-Token Strategy: 
-     * We attempt to verify the token with Firebase first. 
-     * If that fails, we fallback to our internal JWT secret.
-     */
+    // Attempt to verify with Firebase Admin (Primary for Auth header)
     try {
-      decodedFirebase = await admin.auth().verifyIdToken(token);
-      isFirebaseToken = true;
-    } catch (firebaseVerifyError) {
-      // Fallback to custom JWT verification
-      try {
-        decodedCustom = jwt.verify(token, JWT_SECRET);
-      } catch (jwtVerifyError) {
-         // If both fail, the user is definitely unauthenticated
-         return res.status(401).json({ error: "Your session has expired or is invalid" });
+      if (admin.apps.length > 0) {
+        try {
+          decodedFirebase = await admin.auth().verifyIdToken(token);
+          isFirebaseToken = true;
+          console.log("[Auth] Firebase token verified for UID:", decodedFirebase.uid);
+        } catch (fbErr) {
+          // If we have a Bearer token but it fails Firebase verification, we don't fallback to JWT 
+          // unless a cookie also exists. This avoids signature collisions.
+          if (authHeader && authHeader.startsWith("Bearer ")) {
+             console.warn("[Auth] Firebase verification failed:", fbErr.code || fbErr.message);
+             // We fallback to JWT below
+          }
+        }
+      } else {
+        console.error("[Auth] Firebase Admin NOT initialized. Falling back to internal JWT.");
       }
+
+      // If Firebase failed or wasn't tried, attempt custom JWT (internal sessions)
+      if (!isFirebaseToken) {
+        try {
+          decodedCustom = jwt.verify(token, JWT_SECRET);
+          console.log("[Auth] Custom JWT verified for ID:", decodedCustom.id);
+        } catch (jwtErr) {
+          console.error("[Auth] Token verification failed for both Firebase and JWT.");
+          return res.status(401).json({ 
+            error: "Your session has expired or is invalid",
+            details: process.env.NODE_ENV === 'production' ? undefined : (isFirebaseToken ? "Firebase failure" : "JWT failure")
+          });
+        }
+      }
+    } catch (crash) {
+      console.error("[Auth] verification crash:", crash);
+      return res.status(500).json({ error: "Auth tunnel failure" });
     }
 
     // Attempt to resolve the Actual Rider profile from our database

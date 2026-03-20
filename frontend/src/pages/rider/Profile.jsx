@@ -55,7 +55,7 @@ export default function Profile() {
             >
               <Edit2 className="w-4 h-4" /> Edit Profile (TODO)
             </button>
-            <button onClick={handleLogout} className="btn-ghost w-full justify-center gap-2 text-coral hover:bg-coral-soft">
+            <button onClick={handleLogout} className="btn-ghost w-full justify-center gap-2 text-coral hover:bg-coral-soft flex items-center">
               <LogOut className="w-4 h-4" /> Logout
             </button>
           </Card>

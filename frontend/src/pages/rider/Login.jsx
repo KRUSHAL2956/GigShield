@@ -19,7 +19,9 @@ function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
-    if (rider) navigate('/dashboard', { replace: true });
+    if (rider) {
+      navigate('/dashboard', { replace: true });
+    }
   }, [rider, navigate]);
 
   const handleManualLogin = async (e) => {
@@ -30,7 +32,6 @@ function Login() {
     setLoading(true);
     try {
       const res = await api.post('/api/riders/login', { phone, password });
-      
       setAuth(res.data.rider);
       toast.success('Welcome back!');
       navigate('/dashboard');
@@ -52,15 +53,15 @@ function Login() {
       if (res.needsRegistration) {
         toast.success('Google authenticated!');
         navigate('/register', { state: { firebaseData: res.firebaseData, idToken } });
-        return;
+      } else {
+        setAuth(res.rider);
+        toast.success('Welcome back!');
+        navigate('/dashboard');
       }
-      setAuth(res.rider);
-      toast.success('Welcome back!');
-      navigate('/dashboard');
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') {
-         console.error('Google login error:', err);
-         toast.error('Google login failed');
+        console.error('Google login error:', err);
+        toast.error('Google login failed');
       }
     } finally {
       setGoogleLoading(false);

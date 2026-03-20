@@ -25,7 +25,7 @@ function Register() {
   const { setAuth, setScore } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [[step, dir], setStep] = useState([0, 0]);
+  const [[step], setStep] = useState([0, 0]);
 
   const fbData = location.state?.firebaseData || {};
   const sanitize = (ph) => ph ? ph.replace(/\D/g, '').slice(-10) : '';
@@ -338,7 +338,6 @@ const boxInput = { width: '100%', padding: '13px 14px 13px 40px', fontSize: 14, 
 const prefixBox = { padding: '13px 14px', fontSize: 14, color: '#999', fontWeight: 600, background: '#fcfbf9', border: '1.5px solid var(--border)', borderRight: 'none', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 };
 const selectBox = { ...boxInput, cursor: 'pointer', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23bbb' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 14px center' };
 const primaryBtn = { width: '100%', padding: '14.5px', borderRadius: 10, background: 'var(--mint-green)', color: 'var(--forest-green)', fontSize: 14, fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 20px rgba(41, 245, 159, 0.25)', marginTop: 24 };
-const outlineBtn = { width: '100%', padding: '14px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: 'var(--forest-green)', cursor: 'pointer' };
 const socialBtn = { width: '100%', padding: '13px', borderRadius: 10, background: '#fff', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 14, fontWeight: 700, color: 'var(--forest-green)', cursor: 'pointer' };
 const divider = { display: 'flex', alignItems: 'center', margin: '24px 0', gap: 12 };
 const line = { flex: 1, height: 1.5, background: 'var(--border)' };

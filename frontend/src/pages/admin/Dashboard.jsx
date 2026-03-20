@@ -12,8 +12,9 @@ export default function AdminDashboard() {
   const simulateTimerRef = useRef(null);
 
   useEffect(() => {
+    const timer = simulateTimerRef.current;
     return () => {
-      if (simulateTimerRef.current) clearTimeout(simulateTimerRef.current);
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
