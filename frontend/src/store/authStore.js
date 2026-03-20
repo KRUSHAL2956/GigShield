@@ -44,19 +44,8 @@ const useAuthStore = create((set) => ({
       set({ rider: res.data.rider });
       return true;
     } catch (e) {
-      // Handle expired or invalid tokens
-      if (e.response?.status === 401 || e.response?.status === 403) {
-        set({ rider: null, score: null }); 
-        return false;
-      }
-
-      // Handle cases where the rider profile doesn't exist yet
-      if (e.response?.status === 404) {
-        set({ rider: null, score: null });
-        return false;
-      }
-      
-      console.warn('Auth validation failed:', e.message);
+      console.log("Auth handshake failed, continuing as guest state.");
+      set({ rider: null, score: null }); 
       return false;
     }
   }

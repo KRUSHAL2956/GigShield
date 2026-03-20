@@ -47,7 +47,10 @@ api.interceptors.request.use(
     const firebaseToken = await getFirebaseToken();
 
     if (firebaseToken) {
+      console.log(`[Axios] Attaching Firebase Bearer Token (Length: ${firebaseToken.length})`);
       config.headers.Authorization = `Bearer ${firebaseToken}`;
+    } else {
+      console.log("[Axios] No active Firebase session found for request.");
     }
 
     return config;

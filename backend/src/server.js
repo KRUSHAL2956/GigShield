@@ -11,25 +11,58 @@ dotenv.config();
 const admin = require('firebase-admin');
 let firebaseInitialized = false;
 
-// We initialize Firebase Admin using a service account JSON string stored in env.
-// This allows the backend to verify Firebase auth tokens and manage users.
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+// We initialize Firebase Admin using either a full service account JSON or individual variables
+const fbProjectID = process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID;
+const fbClientEmail = process.env.FIREBASE_CLIENT_EMAIL || process.env.CLIENT_EMAIL;
+const fbPrivateKey = process.env.FIREBASE_PRIVATE_KEY || process.env.PRIVATE_KEY;
+
+// 🛡️ Debug Log Stage 1: Enviroment Checklist
+console.log('--- Firebase Admin Auth Debug ---');
+console.log('FIREBASE_PROJECT_ID:', fbProjectID || 'MISSING');
+console.log('FIREBASE_CLIENT_EMAIL:', fbClientEmail || 'MISSING');
+console.log('FIREBASE_PRIVATE_KEY EXISTS:', fbPrivateKey ? 'YES (Length: ' + fbPrivateKey.length + ')' : 'NO');
+console.log('FIREBASE_SERVICE_ACCOUNT EXISTS:', process.env.FIREBASE_SERVICE_ACCOUNT ? 'YES' : 'NO');
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT || (fbProjectID && fbClientEmail && fbPrivateKey)) {
   try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    let serviceAccount;
+    
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } else {
+      serviceAccount = {
+        projectId: fbProjectID,
+        clientEmail: fbClientEmail,
+        privateKey: fbPrivateKey
+      };
+    }
+
+    // 🛡️ Debug Log Stage 2: Private Key Sanitization
     // Standard fix for private key newline formatting in environment variables
-    if (serviceAccount.private_key) {
+    if (serviceAccount.privateKey) {
+      serviceAccount.privateKey = serviceAccount.privateKey.replace(/\\n/g, '\n');
+    } else if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
+
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: serviceAccount.projectId || serviceAccount.project_id,
+          clientEmail: serviceAccount.clientEmail || serviceAccount.client_email,
+          privateKey: serviceAccount.privateKey || serviceAccount.private_key
+        })
+      });
+    }
+    
     firebaseInitialized = true;
-    console.log('✅ Firebase Admin ready');
+    console.log('✅ Firebase Admin Initialized Successfully');
+    console.log('---------------------------------');
   } catch (err) {
-    console.error('❌ Firebase Admin setup failed:', err);
+    console.error('❌ Firebase Admin setup failed:', err.message);
   }
 } else {
-  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT missing. Auth features will be limited.');
+  console.warn('⚠️ Firebase configuration missing. Auth features will be limited.');
 }
 
 const app = express();
@@ -43,27 +76,12 @@ const { pool } = require('./models/db');
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  'http://frontend:3000',
-  /^https:\/\/gig-shield-.*-krushex\.vercel\.app$/, // Tight regex for project preview URLs
-  'https://gig-shield-website.vercel.app'
+  'https://gig-shield-website.vercel.app',
+  /^https:\/\/gig-shield-.*-krushex\.vercel\.app$/
 ];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow server-to-server or local requests with no origin
-    if (!origin) return callback(null, true);
-    
-    // Check if the requesting origin matches our whitelist or Vercel patterns
-    const isAllowed = allowedOrigins.some(pattern => 
-      pattern instanceof RegExp ? pattern.test(origin) : pattern === origin
-    );
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS Policy: Origin not allowed'));
-    }
-  },
+  origin: allowedOrigins,
   credentials: true
 }));
 
@@ -133,6 +151,15 @@ app.use((err, req, res, next) => {
 // Setup shared Redis instance
 const { connectRedis } = require('./utils/redis');
 connectRedis().catch(err => console.error('Redis initialization failed:', err));
+
+// ── API Root Health-Check ──
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'GigShield API Active', 
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'production'
+  });
+});
 
 // ── Server Start ── 
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {

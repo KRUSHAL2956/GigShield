@@ -13,123 +13,97 @@ if (!JWT_SECRET) {
  * Supports both Firebase ID tokens (for frontend-direct login) 
  * and custom JWTs (for legacy or specialized session handling).
  */
+// 🛡️ Core Authentication Middleware
+// Unified token extraction from either Header (Bearer) or Cookie (HttpOnly)
 async function authMiddleware(req, res, next) {
   try {
-    const authHeader = req.headers.authorization;
-    const cookieToken = req.cookies && req.cookies.custom_token;
-
-    // Prioritize explicit Authorization header (Bearer token)
-    let token = null;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
-    } else {
-      token = cookieToken;
-    }
+    // 1. Unified Token Extraction
+    const cookieToken = req.cookies?.custom_token || null;
+    const bearerToken = req.headers.authorization?.split(" ")[1] || null;
+    const token = bearerToken || cookieToken;
 
     if (!token) {
-      return res.status(401).json({ error: "No authentication token provided" });
+      console.warn("[Auth] Rejection: No token discovered in request.");
+      return res.status(401).json({ message: "Unauthorized: No token provided" });
     }
 
-    /**
-     * CSRF Protection for Cookie-sourced tokens:
-     * If the token is coming from a cookie (not the Authorization header), 
-     * and the method is state-changing (POST, PUT, DELETE),
-     * we MUST verify a custom header to ensure the request is not cross-site.
-     */
-    const isCookieSourced = (!authHeader || !authHeader.startsWith("Bearer ")) && req.cookies && req.cookies.custom_token === token;
-    const isStateChanging = ["POST", "PUT", "DELETE", "PATCH"].includes(req.method);
-    
-    if (isCookieSourced && isStateChanging) {
-      if (!req.headers["x-requested-with"] && !req.headers["x-csrf-token"]) {
-        return res.status(403).json({ 
-          error: "Security Check Failed: CSRF protection requires a custom header for state-changing requests." 
-        });
-      }
-    }
+    console.log(`[Auth] Handshake - Token Length: ${token.length}`);
 
-    let rider = null;
-    let decodedUid = null;
-    let isFirebaseToken = false;
     let decodedFirebase = null;
-    let decodedCustom = null;
+    let isFirebaseToken = false;
 
-    // Attempt to verify with Firebase Admin (Primary for Auth header)
+    // 2. Token Verification (Firebase first, then custom JWT)
     try {
       if (admin.apps.length > 0) {
         try {
           decodedFirebase = await admin.auth().verifyIdToken(token);
           isFirebaseToken = true;
-          console.log("[Auth] Firebase token verified for UID:", decodedFirebase.uid);
+          console.log("--- Firebase Token Verified ---");
+          console.log("UID:", decodedFirebase.uid);
+          console.log("-------------------------------");
         } catch (fbErr) {
-          // If we have a Bearer token but it fails Firebase verification, we don't fallback to JWT 
-          // unless a cookie also exists. This avoids signature collisions.
-          if (authHeader && authHeader.startsWith("Bearer ")) {
-             console.warn("[Auth] Firebase verification failed:", fbErr.code || fbErr.message);
-             // We fallback to JWT below
-          }
-        }
-      } else {
-        console.error("[Auth] Firebase Admin NOT initialized. Falling back to internal JWT.");
-      }
-
-      // If Firebase failed or wasn't tried, attempt custom JWT (internal sessions)
-      if (!isFirebaseToken) {
-        try {
-          decodedCustom = jwt.verify(token, JWT_SECRET);
-          console.log("[Auth] Custom JWT verified for ID:", decodedCustom.id);
-        } catch (jwtErr) {
-          console.error("[Auth] Token verification failed for both Firebase and JWT.");
-          return res.status(401).json({ 
-            error: "Your session has expired or is invalid",
-            details: process.env.NODE_ENV === 'production' ? undefined : (isFirebaseToken ? "Firebase failure" : "JWT failure")
-          });
+          console.error("[Auth] Firebase verification failure:", fbErr.message);
+          // If Bearer token fails Firebase, we don't fallback unless it's a cookie
+          if (!bearerToken) throw fbErr; 
+          console.warn("[Auth] Bearer fails Firebase, checking for internal JWT...");
         }
       }
-    } catch (crash) {
-      console.error("[Auth] verification crash:", crash);
-      return res.status(500).json({ error: "Auth tunnel failure" });
+    } catch (fbInitErr) {
+      console.warn("[Auth] Firebase verification skipped/failed:", fbInitErr.message);
     }
 
-    // Attempt to resolve the Actual Rider profile from our database
+    let decodedCustom = null;
+    if (!isFirebaseToken) {
+      try {
+        decodedCustom = jwt.verify(token, JWT_SECRET);
+        console.log("[Auth] Internal JWT verified for ID:", decodedCustom.id);
+      } catch (jwtErr) {
+        console.error("[Auth] Token verification failed for both methods.");
+        return res.status(401).json({ message: "Your session has expired or is invalid" });
+      }
+    }
+
+    // 3. Database Synchronization & Auto-Provisioning
+    let rider = null;
     try {
       if (isFirebaseToken) {
-        decodedUid = decodedFirebase.uid;
-        rider = await Rider.findByFirebaseUid(decodedUid);
-      } else {
-        // Security Fix: Validate decodedCustom and id exist before lookup
-        if (!decodedCustom || !decodedCustom.id) {
-          return res.status(401).json({ error: "Invalid custom token payload" });
+        const uid = decodedFirebase.uid;
+        rider = await Rider.findByFirebaseUid(uid);
+
+        if (!rider) {
+          console.log(`[Auth] New user (UID: ${uid}). Auto-provisioning...`);
+          rider = await Rider.create({
+            name: decodedFirebase.name || "GigShield Member",
+            email: decodedFirebase.email,
+            firebase_uid: uid,
+            city: "Onboarding",
+            platform: "Google",
+            is_active: true
+          });
         }
+      } else if (decodedCustom?.id) {
         rider = await Rider.findById(decodedCustom.id);
       }
-    } catch (dbError) {
-      console.error("Database connection failure during auth:", dbError.message);
-      return res.status(500).json({ error: "Internal Auth Error" });
+    } catch (dbErr) {
+      console.error("[Auth] Database sync failed:", dbErr.message);
+      return res.status(500).json({ message: "Internal Auth Error" });
     }
 
-    // Even with a valid token, the rider must exist in our local database
     if (!rider) {
-      return res.status(404).json({ error: "Account not found or registration incomplete" });
+      return res.status(404).json({ message: "Rider profile not found" });
     }
 
-    /**
-     * Consolidate identity information:
-     * Firebase tokens store roles directly on the decoded object (via custom claims).
-     */
-    const tokenRole = isFirebaseToken 
-       ? (decodedFirebase.role || "rider")
-       : (decodedCustom && decodedCustom.role);
-
+    // 4. Identity Consolidation
     req.user = {
       id: rider.id,
-      uid: decodedUid || rider.firebase_uid,
-      role: rider.role || tokenRole || "rider",
+      uid: isFirebaseToken ? decodedFirebase.uid : rider.firebase_uid,
+      role: rider.role || "rider",
     };
 
     next();
-  } catch (error) {
-    console.error("Authentication crash:", error.message);
-    return res.status(500).json({ error: "Secure authentication tunnel failed" });
+  } catch (err) {
+    console.error("Auth middleware crash:", err.message);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 }
 
